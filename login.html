@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>LocalMarket | Login</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/styles.css" />
+
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#006948",
+                        "primary-container": "#00855d",
+                        background: "#f5fbf5",
+                        surface: "#ffffff",
+                        "surface-container": "#e9efe9",
+                        "on-surface": "#171d19",
+                        "on-background": "#171d19",
+                        "on-surface-variant": "#3d4a42",
+                        outline: "#6d7a72",
+                        "outline-variant": "#bccac0"
+                    },
+                    fontFamily: {
+                        manrope: ["Manrope", "sans-serif"]
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        body {
+            font-family: "Manrope", sans-serif;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+        }
+
+        .role-btn.active {
+            background: white;
+            color: #006948;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        }
+    </style>
+</head>
+
+<body data-page="login" class="bg-background text-on-background min-h-screen flex flex-col">
+
+    <main class="flex-grow flex items-center justify-center px-6 py-10">
+        <section class="w-full max-w-[480px]">
+
+            <div class="text-center mb-8">
+                <a href="index.html"
+                    class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-600 text-white shadow-lg mb-4">
+                    <span class="material-symbols-outlined text-4xl">storefront</span>
+                </a>
+
+                <h1 class="text-3xl font-extrabold tracking-tight text-emerald-700">
+                    LocalMarket
+                </h1>
+
+                <p class="text-slate-500 mt-2">
+                    Acesse sua conta como comerciante ou administrador.
+                </p>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl shadow-xl p-6 md:p-8">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-extrabold tracking-tight text-slate-900">
+                        Entrar na conta
+                    </h2>
+
+                    <p class="text-sm text-slate-500 mt-1">
+                        Escolha o tipo de acesso e informe seus dados.
+                    </p>
+                </div>
+
+                <form id="loginForm" class="space-y-5">
+
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                        <button type="button"
+                            class="role-btn active flex items-center justify-center gap-2 py-3 px-3 rounded-lg font-bold text-sm text-slate-600 transition"
+                            data-role-option="comerciante">
+                            <span class="material-symbols-outlined text-base">store</span>
+                            Comerciante
+                        </button>
+
+                        <button type="button"
+                            class="role-btn flex items-center justify-center gap-2 py-3 px-3 rounded-lg font-bold text-sm text-slate-600 transition"
+                            data-role-option="admin">
+                            <span class="material-symbols-outlined text-base">admin_panel_settings</span>
+                            Admin
+                        </button>
+                    </div>
+
+                    <div>
+                        <label for="email" class="block text-sm font-bold text-slate-700 mb-2">
+                            E-mail
+                        </label>
+
+                        <div class="relative">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">mail</span>
+
+                            <input id="email" type="email"
+                                class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                placeholder="exemplo@localmarket.com.br" required />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-sm font-bold text-slate-700 mb-2">
+                            Senha
+                        </label>
+
+                        <div class="relative">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">lock</span>
+
+                            <input id="password" type="password"
+                                class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                placeholder="Digite sua senha" required />
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-4">
+                        <label class="flex items-center gap-2 text-sm text-slate-600">
+                            <input id="remember" type="checkbox"
+                                class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                            Lembrar acesso
+                        </label>
+
+                        <a href="#" class="text-sm font-bold text-emerald-600 hover:underline">
+                            Esqueci a senha
+                        </a>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-emerald-600 text-white py-3 rounded-xl font-extrabold hover:bg-emerald-700 transition flex items-center justify-center gap-2">
+                        Entrar
+                        <span class="material-symbols-outlined">arrow_forward</span>
+                    </button>
+                </form>
+
+                <div class="mt-6 border-t border-slate-100 pt-5">
+                    <p class="text-sm font-bold text-slate-700 mb-2">Contas de teste:</p>
+
+                    <div class="text-xs text-slate-500 space-y-1">
+                        <p><strong>Admin:</strong> admin@localmarket.com.br / admin123</p>
+                        <p><strong>Green Valley:</strong> green@valley.com.br / green123</p>
+                        <p><strong>Pão Loft:</strong> pao@loft.com.br / pao123</p>
+                        <p><strong>Bloom Stem:</strong> bloom@stem.com.br / bloom123</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-6">
+                <a href="index.html" class="text-sm font-bold text-emerald-600 hover:underline">
+                    Voltar para a página inicial
+                </a>
+            </div>
+
+        </section>
+    </main>
+
+    <footer class="bg-white border-t border-slate-100 py-6">
+        <div class="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p class="text-xs text-slate-500">
+                © 2026 LocalMarket. Todos os direitos reservados.
+            </p>
+
+            <div class="flex gap-5">
+                <a href="privacidade.html"
+                    class="text-xs text-slate-500 hover:text-emerald-600 underline">Privacidade</a>
+                <a href="termos.html" class="text-xs text-slate-500 hover:text-emerald-600 underline">Termos</a>
+                <a href="contato.html" class="text-xs text-slate-500 hover:text-emerald-600 underline">Contato</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/script.js"></script>
+</body>
+
+</html>

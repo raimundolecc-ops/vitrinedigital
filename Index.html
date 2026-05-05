@@ -1,14 +1,605 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LocalMarket - Conectando Comunidades</title>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<!DOCTYPE html>
+<html lang="pt-BR">
 
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>LocalMarket | Página Inicial</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#006948",
+                        "primary-container": "#00855d",
+                        background: "#f5fbf5",
+                        surface: "#ffffff",
+                        "surface-container": "#e9efe9",
+                        "on-surface": "#171d19",
+                        "on-background": "#171d19",
+                        "on-surface-variant": "#3d4a42",
+                        outline: "#6d7a72",
+                        "outline-variant": "#bccac0",
+                        error: "#ba1a1a"
+                    },
+                    fontFamily: {
+                        manrope: ["Manrope", "sans-serif"]
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        body {
+            font-family: "Manrope", sans-serif;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+        }
+
+        .store-card {
+            transition: 0.25s ease;
+        }
+
+        .store-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .category-btn.active {
+            background-color: #059669;
+            color: white;
+            border-color: #059669;
+        }
+    </style>
+</head>
+
+<body data-page="home" class="bg-background text-on-background min-h-screen flex flex-col">
+
+    <!-- Cabeçalho -->
+    <header class="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-200">
+        <div class="max-w-[1200px] mx-auto flex items-center justify-between px-6 md:px-8 py-3 gap-4">
+
+            <a href="index.html" class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-emerald-600 text-3xl">storefront</span>
+                <span class="text-xl font-extrabold tracking-tight text-emerald-600">LocalMarket</span>
+            </a>
+
+            <div class="hidden lg:block flex-1 max-w-md relative group">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span
+                        class="material-symbols-outlined text-slate-400 group-focus-within:text-emerald-600">search</span>
+                </div>
+
+                <input id="searchInput"
+                    class="block w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
+                    placeholder="Pesquisar lojas..." type="text" />
+            </div>
+
+            <nav class="hidden md:flex items-center gap-6">
+                <a class="text-emerald-600 border-b-2 border-emerald-600 pb-1 font-semibold text-sm"
+                    href="index.html">Explorar</a>
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm"
+                    href="lojas.html">Lojas</a>
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm"
+                    href="catalogo.html">Ofertas</a>
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm"
+                    href="mapa.html">Mapa</a>
+            </nav>
+
+            <div class="flex items-center gap-3">
+                <a href="login.html"
+                    class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-100 transition">
+                    <span class="material-symbols-outlined">person</span>
+                    Entrar
+                </a>
+
+                <a href="catalogo.html"
+                    class="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-all active:scale-95 relative">
+                    <span class="material-symbols-outlined">shopping_cart</span>
+                    <span class="absolute top-1 right-1 w-2 h-2 bg-emerald-600 rounded-full"></span>
+                </a>
+
+                <a href="login.html"
+                    class="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center border border-slate-200 active:scale-95 transition-transform">
+                    <span class="material-symbols-outlined text-sm">account_circle</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteúdo principal -->
+    <main class="mt-20 flex-grow max-w-[1200px] mx-auto w-full px-6 md:px-8 py-8">
+
+        <!-- Hero -->
+        <section class="mb-12">
+            <div
+                class="relative overflow-hidden rounded-2xl bg-primary-container p-8 md:p-12 flex items-center min-h-[320px] shadow-sm">
+                <div class="z-10 max-w-xl">
+                    <span
+                        class="inline-flex items-center gap-2 bg-white/20 text-white px-4 py-2 rounded-full text-sm font-bold mb-5">
+                        <span class="material-symbols-outlined text-sm">verified</span>
+                        Comércio local em destaque
+                    </span>
+
+                    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-4">
+                        Descubra lojas, produtos e serviços perto de você
+                    </h1>
+
+                    <p class="text-lg text-white/90 mb-8">
+                        Encontre comerciantes locais, visualize ofertas, visite páginas de lojas e apoie negócios da sua
+                        região.
+                    </p>
+
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <a href="lojas.html"
+                            class="bg-white text-emerald-700 px-6 py-3 rounded-lg font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm">
+                            Ver lojas
+                            <span class="material-symbols-outlined">arrow_forward</span>
+                        </a>
+
+                        <a href="login.html"
+                            class="bg-emerald-900/30 text-white border border-white/30 px-6 py-3 rounded-lg font-bold hover:bg-emerald-900/40 transition-all flex items-center justify-center gap-2">
+                            Seja um comerciante
+                            <span class="material-symbols-outlined">store</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="absolute right-0 top-0 w-1/2 h-full hidden lg:block">
+                    <img class="w-full h-full object-cover opacity-70" alt="Imagem de comércio local"
+                        src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1200&q=80" />
+                    <div class="absolute inset-0 bg-gradient-to-r from-primary-container to-transparent"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Categorias -->
+        <section class="mb-8 overflow-x-auto pb-4">
+            <div class="flex items-center gap-3">
+                <button
+                    class="category-btn active px-5 py-2 rounded-full bg-emerald-600 text-white font-bold text-sm shadow-sm border border-emerald-600 whitespace-nowrap"
+                    data-category="todas">
+                    Todas as lojas
+                </button>
+
+                <button
+                    class="category-btn px-5 py-2 rounded-full bg-white text-slate-600 font-bold text-sm border border-slate-200 hover:border-emerald-500 hover:text-emerald-500 transition-all whitespace-nowrap"
+                    data-category="padaria">
+                    Padaria
+                </button>
+
+                <button
+                    class="category-btn px-5 py-2 rounded-full bg-white text-slate-600 font-bold text-sm border border-slate-200 hover:border-emerald-500 hover:text-emerald-500 transition-all whitespace-nowrap"
+                    data-category="organicos">
+                    Orgânicos
+                </button>
+
+                <button
+                    class="category-btn px-5 py-2 rounded-full bg-white text-slate-600 font-bold text-sm border border-slate-200 hover:border-emerald-500 hover:text-emerald-500 transition-all whitespace-nowrap"
+                    data-category="artesanato">
+                    Artesanato
+                </button>
+
+                <button
+                    class="category-btn px-5 py-2 rounded-full bg-white text-slate-600 font-bold text-sm border border-slate-200 hover:border-emerald-500 hover:text-emerald-500 transition-all whitespace-nowrap"
+                    data-category="flores">
+                    Flores
+                </button>
+
+                <button
+                    class="category-btn px-5 py-2 rounded-full bg-white text-slate-600 font-bold text-sm border border-slate-200 hover:border-emerald-500 hover:text-emerald-500 transition-all whitespace-nowrap"
+                    data-category="cafe">
+                    Café
+                </button>
+
+                <button
+                    class="category-btn px-5 py-2 rounded-full bg-white text-slate-600 font-bold text-sm border border-slate-200 hover:border-emerald-500 hover:text-emerald-500 transition-all whitespace-nowrap"
+                    data-category="moda">
+                    Moda
+                </button>
+            </div>
+        </section>
+
+        <!-- Lojas em destaque -->
+        <section>
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-2xl font-extrabold tracking-tight text-slate-900">Lojas em destaque</h2>
+                    <p class="text-slate-500 text-sm">Clique em “Visitar loja” para abrir a página da loja.</p>
+                </div>
+
+                <a href="mapa.html"
+                    class="hidden sm:flex items-center gap-2 text-emerald-600 font-bold hover:underline">
+                    Ver no mapa
+                    <span class="material-symbols-outlined text-sm">map</span>
+                </a>
+            </div>
+
+            <div id="storesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+
+                <!-- Loja 1 -->
+                <article
+                    class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden"
+                    data-name="Green Valley Orgânicos" data-category="organicos">
+                    <div class="aspect-square relative overflow-hidden">
+                        <img class="w-full h-full object-cover" alt="Green Valley Orgânicos"
+                            src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80" />
+                        <span
+                            class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-emerald-600 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+                            Mais avaliada
+                        </span>
+                    </div>
+
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-lg font-extrabold text-slate-900">Green Valley Orgânicos</h3>
+
+                            <div class="flex items-center gap-1 text-yellow-500">
+                                <span class="material-symbols-outlined text-sm"
+                                    style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="text-xs font-bold text-slate-700">4.9</span>
+                            </div>
+                        </div>
+
+                        <p class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            Centro da cidade
+                        </p>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">ORGÂNICO</span>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">FRESCO</span>
+                        </div>
+
+                        <a href="loja.html?loja=green-valley"
+                            class="block w-full py-2 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all text-center">
+                            Visitar loja
+                        </a>
+                    </div>
+                </article>
+
+                <!-- Loja 2 -->
+                <article
+                    class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden"
+                    data-name="The Sourdough Loft" data-category="padaria">
+                    <div class="aspect-square relative overflow-hidden">
+                        <img class="w-full h-full object-cover" alt="The Sourdough Loft"
+                            src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80" />
+                        <span
+                            class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-emerald-600 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+                            Mais vendida
+                        </span>
+                    </div>
+
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-lg font-extrabold text-slate-900">The Sourdough Loft</h3>
+
+                            <div class="flex items-center gap-1 text-yellow-500">
+                                <span class="material-symbols-outlined text-sm"
+                                    style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="text-xs font-bold text-slate-700">4.8</span>
+                            </div>
+                        </div>
+
+                        <p class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            Bairro histórico
+                        </p>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">PADARIA</span>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">ARTESANAL</span>
+                        </div>
+
+                        <a href="loja.html?loja=sourdough-loft"
+                            class="block w-full py-2 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all text-center">
+                            Visitar loja
+                        </a>
+                    </div>
+                </article>
+
+                <!-- Loja 3 -->
+                <article
+                    class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden"
+                    data-name="Bloom & Stem" data-category="flores">
+                    <div class="aspect-square relative overflow-hidden">
+                        <img class="w-full h-full object-cover" alt="Bloom & Stem"
+                            src="https://images.unsplash.com/photo-1487070183336-b863922373d4?auto=format&fit=crop&w=900&q=80" />
+                    </div>
+
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-lg font-extrabold text-slate-900">Bloom & Stem</h3>
+
+                            <div class="flex items-center gap-1 text-yellow-500">
+                                <span class="material-symbols-outlined text-sm"
+                                    style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="text-xs font-bold text-slate-700">4.7</span>
+                            </div>
+                        </div>
+
+                        <p class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            Jardim Leste
+                        </p>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">FLORES</span>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">LOCAL</span>
+                        </div>
+
+                        <a href="loja.html?loja=bloom-stem"
+                            class="block w-full py-2 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all text-center">
+                            Visitar loja
+                        </a>
+                    </div>
+                </article>
+
+                <!-- Loja 4 -->
+                <article
+                    class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden"
+                    data-name="Origin Coffee Lab" data-category="cafe">
+                    <div class="aspect-square relative overflow-hidden">
+                        <img class="w-full h-full object-cover" alt="Origin Coffee Lab"
+                            src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80" />
+                    </div>
+
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-lg font-extrabold text-slate-900">Origin Coffee Lab</h3>
+
+                            <div class="flex items-center gap-1 text-yellow-500">
+                                <span class="material-symbols-outlined text-sm"
+                                    style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="text-xs font-bold text-slate-700">5.0</span>
+                            </div>
+                        </div>
+
+                        <p class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            Terminal Plaza
+                        </p>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">CAFÉ</span>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">TORREFAÇÃO</span>
+                        </div>
+
+                        <a href="loja.html?loja=origin-coffee"
+                            class="block w-full py-2 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all text-center">
+                            Visitar loja
+                        </a>
+                    </div>
+                </article>
+
+                <!-- Loja 5 -->
+                <article
+                    class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden"
+                    data-name="Minimal Home" data-category="artesanato">
+                    <div class="aspect-square relative overflow-hidden">
+                        <img class="w-full h-full object-cover" alt="Minimal Home"
+                            src="https://images.unsplash.com/photo-1513161455079-7dc1de15ef3e?auto=format&fit=crop&w=900&q=80" />
+                    </div>
+
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-lg font-extrabold text-slate-900">Minimal Home</h3>
+
+                            <div class="flex items-center gap-1 text-yellow-500">
+                                <span class="material-symbols-outlined text-sm"
+                                    style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="text-xs font-bold text-slate-700">4.6</span>
+                            </div>
+                        </div>
+
+                        <p class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            North Point
+                        </p>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">CASA</span>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">ECO</span>
+                        </div>
+
+                        <a href="loja.html?loja=minimal-home"
+                            class="block w-full py-2 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all text-center">
+                            Visitar loja
+                        </a>
+                    </div>
+                </article>
+
+                <!-- Loja 6 -->
+                <article
+                    class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden"
+                    data-name="Urban Thread" data-category="moda">
+                    <div class="aspect-square relative overflow-hidden">
+                        <img class="w-full h-full object-cover" alt="Urban Thread"
+                            src="https://images.unsplash.com/photo-1521334884684-d80222895322?auto=format&fit=crop&w=900&q=80" />
+                    </div>
+
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-lg font-extrabold text-slate-900">Urban Thread</h3>
+
+                            <div class="flex items-center gap-1 text-yellow-500">
+                                <span class="material-symbols-outlined text-sm"
+                                    style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="text-xs font-bold text-slate-700">4.9</span>
+                            </div>
+                        </div>
+
+                        <p class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            Distrito da moda
+                        </p>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">MODA</span>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">VESTUÁRIO</span>
+                        </div>
+
+                        <a href="loja.html?loja=urban-thread"
+                            class="block w-full py-2 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all text-center">
+                            Visitar loja
+                        </a>
+                    </div>
+                </article>
+
+                <!-- Loja 7 -->
+                <article
+                    class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden"
+                    data-name="Clay & Kiln" data-category="artesanato">
+                    <div class="aspect-square relative overflow-hidden">
+                        <img class="w-full h-full object-cover" alt="Clay & Kiln"
+                            src="https://images.unsplash.com/photo-1493106641515-6b5631de4bb9?auto=format&fit=crop&w=900&q=80" />
+                    </div>
+
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-lg font-extrabold text-slate-900">Clay & Kiln</h3>
+
+                            <div class="flex items-center gap-1 text-yellow-500">
+                                <span class="material-symbols-outlined text-sm"
+                                    style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="text-xs font-bold text-slate-700">4.5</span>
+                            </div>
+                        </div>
+
+                        <p class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            Bairro artesanal
+                        </p>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">CERÂMICA</span>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">FEITO
+                                À MÃO</span>
+                        </div>
+
+                        <a href="loja.html?loja=clay-kiln"
+                            class="block w-full py-2 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all text-center">
+                            Visitar loja
+                        </a>
+                    </div>
+                </article>
+
+                <!-- Loja 8 -->
+                <article
+                    class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden"
+                    data-name="Heritage Deli" data-category="organicos">
+                    <div class="aspect-square relative overflow-hidden">
+                        <img class="w-full h-full object-cover" alt="Heritage Deli"
+                            src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80" />
+                    </div>
+
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-lg font-extrabold text-slate-900">Heritage Deli</h3>
+
+                            <div class="flex items-center gap-1 text-yellow-500">
+                                <span class="material-symbols-outlined text-sm"
+                                    style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="text-xs font-bold text-slate-700">4.8</span>
+                            </div>
+                        </div>
+
+                        <p class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            Mercado Central
+                        </p>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">GOURMET</span>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">LOCAL</span>
+                        </div>
+
+                        <a href="loja.html?loja=heritage-deli"
+                            class="block w-full py-2 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all text-center">
+                            Visitar loja
+                        </a>
+                    </div>
+                </article>
+
+            </div>
+
+            <div id="emptyMessage" class="hidden mt-8 bg-white border border-slate-200 rounded-xl p-8 text-center">
+                <h3 class="text-xl font-extrabold text-slate-900 mb-2">Nenhuma loja encontrada</h3>
+                <p class="text-slate-500">Tente pesquisar outro nome ou escolher outra categoria.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="w-full mt-auto bg-white border-t border-slate-100">
+        <div class="max-w-[1200px] mx-auto py-8 px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+
+                <div class="flex flex-col gap-1">
+                    <span class="font-extrabold text-slate-900 text-lg">LocalMarket</span>
+                    <p class="text-xs text-slate-500">© 2026 LocalMarket. Todos os direitos reservados.</p>
+                </div>
+
+                <div class="flex flex-wrap justify-center gap-6">
+                    <a class="text-xs text-slate-500 hover:text-emerald-500 underline" href="privacidade.html">Política
+                        de Privacidade</a>
+                    <a class="text-xs text-slate-500 hover:text-emerald-500 underline" href="termos.html">Termos de
+                        Serviço</a>
+                    <a class="text-xs text-slate-500 hover:text-emerald-500 underline" href="contato.html">Contato</a>
+                    <a class="text-xs text-slate-500 hover:text-emerald-500 underline" href="login.html">Venda
+                        localmente</a>
+                </div>
+
+                <div class="flex gap-4">
+                    <span
+                        class="material-symbols-outlined text-slate-400 hover:text-emerald-600 cursor-pointer">language</span>
+                    <span
+                        class="material-symbols-outlined text-slate-400 hover:text-emerald-600 cursor-pointer">share</span>
+                    <span
+                        class="material-symbols-outlined text-slate-400 hover:text-emerald-600 cursor-pointer">support_agent</span>
+                </div>
+
+            </div>
+        </div>
+    </footer>
+
+    <!-- Botão flutuante -->
+    <a href="login.html"
+        class="fixed bottom-8 right-8 w-14 h-14 bg-emerald-600 text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-all hover:bg-emerald-700 z-40">
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+    </a>
+
+    <script src="js/script.js"></script>
+</body>
+
+</html>

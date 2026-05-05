@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>LocalMarket | Loja</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#006948",
+                        "primary-container": "#00855d",
+                        background: "#f5fbf5",
+                        surface: "#ffffff",
+                        "surface-container": "#e9efe9",
+                        "on-surface": "#171d19",
+                        "on-background": "#171d19",
+                        "on-surface-variant": "#3d4a42",
+                        outline: "#6d7a72",
+                        "outline-variant": "#bccac0",
+                        error: "#ba1a1a"
+                    },
+                    fontFamily: {
+                        manrope: ["Manrope", "sans-serif"]
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        body {
+            font-family: "Manrope", sans-serif;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+        }
+        
+        .store-header {
+            background-color: #006948;
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+
+<body data-page="loja" class="bg-background text-on-background min-h-screen flex flex-col">
+
+    <!-- Cabeçalho -->
+    <header class="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-200">
+        <div class="max-w-[1200px] mx-auto flex items-center justify-between px-6 md:px-8 py-3 gap-4">
+
+            <a href="index.html" class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-emerald-600 text-3xl">storefront</span>
+                <span class="text-xl font-extrabold tracking-tight text-emerald-600">LocalMarket</span>
+            </a>
+
+            <nav class="hidden md:flex items-center gap-6">
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm"
+                    href="index.html">Explorar</a>
+                <a class="text-emerald-600 border-b-2 border-emerald-600 pb-1 font-semibold text-sm"
+                    href="lojas.html">Lojas</a>
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm"
+                    href="catalogo.html">Ofertas</a>
+            </nav>
+
+            <div class="flex items-center gap-3">
+                <a href="login.html"
+                    class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-100 transition">
+                    <span class="material-symbols-outlined">person</span>
+                    Entrar
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteúdo principal -->
+    <main class="mt-16 flex-grow w-full">
+        <div class="store-header w-full flex justify-center text-center">
+            <div class="max-w-[1200px] px-8">
+                <h1 id="storeNameHeader" class="text-4xl font-extrabold mb-2">Loja</h1>
+                <p id="storeDescHeader" class="text-lg opacity-90">Bem-vindo à nossa página.</p>
+            </div>
+        </div>
+
+        <div class="max-w-[1200px] mx-auto px-6 md:px-8 pb-12">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-extrabold tracking-tight text-slate-900">Nossos Produtos</h2>
+            </div>
+            
+            <div id="lojaGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Produtos serão renderizados aqui via JS -->
+            </div>
+            
+            <div id="emptyLojaMessage" class="hidden bg-white border border-slate-200 rounded-xl p-8 text-center">
+                <h3 class="text-xl font-extrabold text-slate-900 mb-2">Nenhum produto disponível</h3>
+                <p class="text-slate-500">Esta loja ainda não possui produtos ativos.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full mt-auto bg-white border-t border-slate-100">
+        <div class="max-w-[1200px] mx-auto py-8 px-8">
+            <p class="text-xs text-slate-500 text-center">© 2026 LocalMarket. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="js/script.js"></script>
+</body>
+
+</html>
