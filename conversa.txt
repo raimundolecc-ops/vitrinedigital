@@ -1,1 +1,66 @@
 "Atue como um desenvolvedor Front-end Sênior especializado em React e Tailwind CSS. Crie a estrutura de uma aplicação web de catálogo para pequenos comerciantes. A interface deve ser limpa, responsiva e focada em UX.Requisitos Funcionais por Perfil:Visão do Cliente (Público):Home: Lista de cards de comerciantes cadastrados.Página do Comerciante: Exibição dos produtos do comerciante selecionado, organizados por categorias (ex: Doces, Salgados, Bebidas) com fotos, nomes e preços.Área do Comerciante (Autenticado):Login: Formulário de acesso.Dashboard: Lista dos próprios produtos com opções de Editar/Excluir.Cadastro de Produto: Formulário com campos para Nome, Preço, Categoria e URL da Imagem.Área do Administrador (Master):Painel ADM: Lista de todos os comerciantes cadastrados e um botão/formulário para cadastrar novos comerciantes.Especificações Técnicas:Use React com Tailwind CSS para estilização moderna.Utilize Lucide-React para ícones.Simule o estado global ou use objetos Mock (JSON) para demonstrar a funcionalidade sem um banco de dados real por enquanto.Implemente uma navegação simples (pode ser via abas ou rotas simuladas).Garanta que o layout seja mobile-first."Estrutura Sugerida de ComponentesAo receber o código, verifique se a IA organizou os dados da seguinte forma para facilitar sua vida:ComponenteFunçãoMerchantCardExibe miniatura do comerciante na Home.ProductGridOrganiza os itens por categoria na página do lojista.AdminPanelTabela ou lista para o ADM gerenciar os usuários.ProductFormModal ou página para o lojista inserir novos itens.
+
+
+Analisar, Traduzir e Integrar API no Projeto Vitrine Digital
+O objetivo deste plano é transformar o projeto estático atual em uma aplicação web funcional, totalmente traduzida para Português (pt-BR), integrada à Fake Store API e com sistema de login funcional para testes.
+
+User Review Required
+IMPORTANT
+
+A Fake Store API não permite salvar dados permanentemente (ex: novos produtos adicionados ou novos cadastros não ficarão salvos no banco deles, apenas retornarão sucesso na hora). A simulação será feita via JavaScript no frontend para fins de teste e demonstração. Além disso, a Fake Store API fornece produtos gerais (eletrônicos, joias, roupas). As imagens e textos das vitrines serão substituídas por esses dados.
+
+Proposed Changes
+1. Tradução Global e Ajustes de Interface
+Todos os arquivos HTML serão traduzidos do inglês para o português do Brasil (pt-BR).
+
+Textos de navegação, botões, rodapé, placeholders e alertas.
+Alteração da moeda de Dólar ($) para Real (R$).
+[MODIFY] Index.html
+Tradução de cabeçalhos e menus.
+Integração de script para buscar produtos em destaque via https://fakestoreapi.com/products?limit=8 e popular os cards dinamicamente.
+[MODIFY] login.html
+Tradução do formulário de login.
+Adição de lógica JavaScript para autenticação com dados genéricos de teste:
+Administrador: Email: admin@vitrine.com / Senha: admin
+Comerciante: Email: loja@vitrine.com / Senha: loja
+Redirecionamento correto dependendo do tipo de usuário (Painel Admin ou Dashboard do Comerciante).
+[MODIFY] dashboard do comerciante.html
+Tradução das métricas e menus laterais.
+Integração da tabela de inventário com https://fakestoreapi.com/products para listar produtos dinamicamente.
+[MODIFY] pagina do comerciante.html
+Tradução dos filtros, categorias e informações da loja.
+Integração da vitrine de produtos com a Fake Store API para exibir os produtos de forma dinâmica.
+[MODIFY] painel administrativo.html
+Tradução da interface de administração.
+Uso do endpoint https://fakestoreapi.com/users para listar usuários da API como se fossem os "Comerciantes Registrados" na plataforma.
+[MODIFY] cadastro de produt.html
+Tradução do formulário de cadastro.
+Adição de script para capturar o formulário e enviar um POST para https://fakestoreapi.com/products, simulando a criação de um novo produto com mensagens de sucesso para o usuário.
+Verification Plan
+Manual Verification
+Login: Acessar login.html, inserir credenciais de teste de Admin e Comerciante, verificar redirecionamento correto.
+Vitrine: Acessar Index.html e verificar se os produtos carregados são provenientes da Fake Store API.
+Dashboard e Tabela: Entrar no dashboard do comerciante e verificar se a tabela de estoque está sendo populada com a API.
+Cadastro: Testar o preenchimento do formulário de cadastro de produto e confirmar o alerta de sucesso na submissão.
+Idioma: Validar se todo o texto estático da interface agora consta em port
+
+
+
+
+
+ Produto 8 — “Vitrine Digital para Comércio Local”
+
+Problema: lojas sem presença online
+Público: pequenos comerciantes
+
+API SUGERIDA: Fake Store API
+Escopo (UC2)
+Exibição de produtos (cards)
+Destaque de promoções
+Filtro por categoria
+Requisitos técnicos
+Bootstrap (grid + cards)
+JS para filtragem
+Evolução
+UC3: cadastro de produtos via API
+UC4: publicação como site oficial
