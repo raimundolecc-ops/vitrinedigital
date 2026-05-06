@@ -14,31 +14,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
 
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        primary: "#006948",
-                        "primary-container": "#00855d",
-                        background: "#f5fbf5",
-                        surface: "#ffffff",
-                        "surface-container": "#e9efe9",
-                        "on-surface": "#171d19",
-                        "on-background": "#171d19",
-                        "on-surface-variant": "#3d4a42",
-                        outline: "#6d7a72",
-                        "outline-variant": "#bccac0",
-                        error: "#ba1a1a"
-                    },
-                    fontFamily: {
-                        manrope: ["Manrope", "sans-serif"]
-                    }
-                }
-            }
-        };
-    </script>
+    <link rel="stylesheet" href="css/styles.css" />
+
+
+    
 
     <style>
         body {
@@ -73,7 +52,7 @@
                 <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm"
                     href="index.html">Explorar</a>
                 <a class="text-emerald-600 border-b-2 border-emerald-600 pb-1 font-semibold text-sm"
-                    href="lojas.html">Lojas</a>
+                    href="catalogo.html">Lojas</a>
                 <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm"
                     href="catalogo.html">Ofertas</a>
             </nav>
@@ -99,7 +78,7 @@
 
         <div class="max-w-[1200px] mx-auto px-6 md:px-8 pb-12">
             <div class="flex items-center justify-between mb-6">
-                <h2 class="text-2xl font-extrabold tracking-tight text-slate-900">Nossos Produtos</h2>
+                <h2 id="lojaTitle" class="text-2xl font-extrabold tracking-tight text-slate-900">Nossos Produtos</h2>
             </div>
             
             <div id="lojaGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

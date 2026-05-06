@@ -182,6 +182,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (page === "loja") {
         setupLojaPage();
     }
+
+    if (page === "carrinho") {
+        setupCarrinhoPage();
+    }
 });
 
 // ===============================
@@ -441,9 +445,23 @@ function setupUserInfo() {
 function setupLojaPage() {
     const params = new URLSearchParams(window.location.search);
     const storeSlug = params.get("loja");
+    const lojaTitle = document.getElementById("lojaTitle");
 
     if (!storeSlug) {
-        window.location.href = "index.html";
+        const storeNameHeader = document.getElementById("storeNameHeader");
+        const storeDescHeader = document.getElementById("storeDescHeader");
+        
+        if (storeNameHeader) {
+            storeNameHeader.textContent = "Nossas Lojas";
+        }
+        if (storeDescHeader) {
+            storeDescHeader.textContent = "Explore todas as lojas parceiras e descubra os melhores produtos da sua região.";
+        }
+        if (lojaTitle) {
+            lojaTitle.textContent = "Lojas Disponíveis";
+        }
+        
+        renderAllStores();
         return;
     }
 
@@ -455,8 +473,71 @@ function setupLojaPage() {
     if (storeNameHeader) {
         storeNameHeader.textContent = storeUser ? storeUser.name : "Loja Parceira";
     }
+    if (lojaTitle) {
+        lojaTitle.textContent = "Nossos Produtos";
+    }
 
     renderLojaItems(storeSlug);
+}
+
+function renderAllStores() {
+    const grid = document.getElementById("lojaGrid");
+    const emptyMessage = document.getElementById("emptyLojaMessage");
+
+    if (!grid) return;
+
+    let organizations = getOrganizations();
+
+    if (organizations.length === 0) {
+        if (emptyMessage) {
+            emptyMessage.classList.remove("hidden");
+            const h3 = emptyMessage.querySelector("h3");
+            const p = emptyMessage.querySelector("p");
+            if (h3) h3.textContent = "Nenhuma loja disponível";
+            if (p) p.textContent = "Ainda não temos lojas parceiras cadastradas.";
+        }
+        grid.innerHTML = "";
+        return;
+    }
+
+    if (emptyMessage) emptyMessage.classList.add("hidden");
+
+    grid.innerHTML = organizations.map(org => {
+        const storeImages = {
+            "green-valley": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80",
+            "sourdough-loft": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80",
+            "bloom-stem": "https://images.unsplash.com/photo-1487070183336-b863922373d4?auto=format&fit=crop&w=900&q=80",
+            "origin-coffee": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80",
+            "minimal-home": "https://images.unsplash.com/photo-1513161455079-7dc1de15ef3e?auto=format&fit=crop&w=900&q=80",
+            "urban-thread": "https://images.unsplash.com/photo-1521334884684-d80222895322?auto=format&fit=crop&w=900&q=80",
+            "clay-kiln": "https://images.unsplash.com/photo-1493106641515-6b5631de4bb9?auto=format&fit=crop&w=900&q=80",
+            "heritage-deli": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80"
+        };
+        const imageUrl = storeImages[org.storeSlug] || "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=900&q=80";
+
+        return `
+            <article class="bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col h-full">
+                <div class="aspect-square relative overflow-hidden bg-slate-100 flex-shrink-0 border-b border-slate-100 flex items-center justify-center">
+                     <img class="w-full h-full object-cover" src="${imageUrl}" alt="${escapeHTML(org.name)}">
+                </div>
+                <div class="p-4 flex flex-col flex-grow">
+                    <span class="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-1 rounded w-fit mb-2 uppercase tracking-wider">
+                        ${escapeHTML(org.category || "Geral")}
+                    </span>
+                    <h3 class="text-xl font-extrabold text-slate-900 mb-1">${escapeHTML(org.name)}</h3>
+                    <p class="text-sm font-semibold text-slate-500 mb-3 flex-grow flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">location_on</span>
+                        ${escapeHTML(org.location || "Sem localização")}
+                    </p>
+                    <div class="mt-auto pt-2">
+                        <a href="loja.html?loja=${escapeHTML(org.storeSlug)}" class="block w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all text-center shadow-sm">
+                            Visitar loja
+                        </a>
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join("");
 }
 
 function renderLojaItems(storeSlug) {
@@ -492,7 +573,7 @@ function renderLojaItems(storeSlug) {
                     <p class="text-sm text-slate-500 mb-3 flex-grow line-clamp-2">${escapeHTML(item.description || "Sem descrição.")}</p>
                     <div class="mt-auto">
                         <strong class="text-xl text-slate-900 block mb-3">${formatCurrency(item.price)}</strong>
-                        <button class="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg hover:bg-emerald-700 transition" onclick="showMessage('Adicionado ao carrinho!')">
+                        <button class="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg hover:bg-emerald-700 transition" data-add-cart="${escapeHTML(item.id)}">
                             Comprar
                         </button>
                     </div>
@@ -500,6 +581,8 @@ function renderLojaItems(storeSlug) {
             </article>
         `;
     }).join("");
+
+    setupCatalogActions();
 }
 
 // ===============================
@@ -947,13 +1030,14 @@ async function importFromFakeStore() {
         let addedCount = 0;
         
         products.forEach(prod => {
-            const newId = `FS-${prod.id}`;
+            const userSlug = session.role === "admin" ? "admin" : session.storeSlug;
+            const newId = `FS-${userSlug}-${prod.id}`;
             const exists = currentItems.some(i => i.id === newId);
             
             if (!exists) {
                 currentItems.push({
                     id: newId,
-                    ownerSlug: session.role === "admin" ? "admin" : session.storeSlug,
+                    ownerSlug: userSlug,
                     storeName: session.name,
                     name: prod.title,
                     category: prod.category,
@@ -1347,3 +1431,75 @@ function exportCSV(filename, rows) {
 
     URL.revokeObjectURL(link.href);
 }
+
+// ===============================
+// Carrinho - carrinho.html
+// ===============================
+
+function setupCarrinhoPage() {
+    renderCarrinho();
+}
+
+function renderCarrinho() {
+    const list = document.getElementById("cartItemsList");
+    const emptyMsg = document.getElementById("emptyCart");
+    const content = document.getElementById("cartContent");
+    const subtotalEl = document.getElementById("subtotalValue");
+    const totalEl = document.getElementById("totalValue");
+
+    if (!list) return;
+
+    const cart = getCart();
+    const allItems = getItems();
+    
+    if (cart.length === 0) {
+        if (content) content.classList.add("hidden");
+        if (emptyMsg) emptyMsg.classList.remove("hidden");
+        return;
+    }
+
+    if (content) content.classList.remove("hidden");
+    if (emptyMsg) emptyMsg.classList.add("hidden");
+
+    let subtotal = 0;
+
+    list.innerHTML = cart.map((cartItem) => {
+        const item = allItems.find(i => i.id === cartItem.id);
+        if (!item) return "";
+
+        const itemTotal = Number(item.price) * Number(cartItem.quantity);
+        subtotal += itemTotal;
+
+        return `
+            <div class="flex items-center gap-4 p-4 border-b border-slate-100 last:border-0">
+                <img src="${escapeHTML(item.image || makePlaceholder(item.name))}" class="w-20 h-20 object-cover rounded-lg">
+                <div class="flex-grow">
+                    <h3 class="font-bold text-slate-900">${escapeHTML(item.name)}</h3>
+                    <p class="text-sm text-slate-500">${escapeHTML(item.storeName || "Loja")}</p>
+                    <div class="text-emerald-700 font-extrabold mt-1">${formatCurrency(item.price)}</div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600" onclick="updateCartQuantity('${cartItem.id}', -1)">-</button>
+                    <span class="font-bold w-4 text-center">${cartItem.quantity}</span>
+                    <button class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600" onclick="updateCartQuantity('${cartItem.id}', 1)">+</button>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    if (subtotalEl) subtotalEl.textContent = formatCurrency(subtotal);
+    if (totalEl) totalEl.textContent = formatCurrency(subtotal);
+}
+
+window.updateCartQuantity = function(id, change) {
+    let cart = getCart();
+    const item = cart.find(i => i.id === id);
+    if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+            cart = cart.filter(i => i.id !== id);
+        }
+    }
+    saveCart(cart);
+    renderCarrinho();
+};
