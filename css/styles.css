@@ -596,3 +596,33 @@ img {
         width: 100%;
     }
 }
+
+/* Adicione isso ao seu CSS */
+body.high-contrast {
+    background-color: #000 !important;
+    color: #fff !important;
+}
+
+body.high-contrast .bg-white, 
+body.high-contrast .bg-background,
+body.high-contrast header,
+body.high-contrast footer {
+    background-color: #000 !important;
+    border-color: #fff !important;
+}
+
+body.high-contrast p, 
+body.high-contrast h1, 
+body.high-contrast h2, 
+body.high-contrast h3, 
+body.high-contrast span {
+    color: #fff !important;
+}
+
+body.high-contrast button, 
+body.high-contrast .btn,
+body.high-contrast a {
+    background-color: #ffff00 !important; /* Amarelo para destaque */
+    color: #000 !important;
+    border: 2px solid #fff !important;
+}

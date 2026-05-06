@@ -1503,3 +1503,34 @@ window.updateCartQuantity = function(id, change) {
     saveCart(cart);
     renderCarrinho();
 };
+
+// ===============================
+// Lógica de Acessibilidade
+// ===============================
+
+function toggleContrast() {
+    // Alterna a classe no body
+    document.body.classList.toggle('high-contrast');
+    
+    // Salva a escolha do usuário para as próximas páginas
+    const isContrast = document.body.classList.contains('high-contrast');
+    localStorage.setItem('accessibility_contrast', isContrast);
+}
+
+let currentFontSize = 100; 
+function changeFontSize(delta) {
+    currentFontSize += delta * 10;
+    
+    // Limites para não quebrar o layout
+    if (currentFontSize < 80) currentFontSize = 80;
+    if (currentFontSize > 200) currentFontSize = 200;
+    
+    document.documentElement.style.fontSize = `${currentFontSize}%`;
+}
+
+// Carregar preferências ao abrir qualquer página
+document.addEventListener("DOMContentLoaded", () => {
+    if (localStorage.getItem('accessibility_contrast') === 'true') {
+        document.body.classList.add('high-contrast');
+    }
+});
