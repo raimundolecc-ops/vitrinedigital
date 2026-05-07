@@ -49,7 +49,7 @@
                         <span>Total</span>
                         <span id="totalValue" class="text-emerald-700">R$ 0,00</span>
                     </div>
-                    <button id="checkoutBtn" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-200">
+                    <button class="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-200">
                         Finalizar Pedido
                     </button>
                 </div>
@@ -77,19 +77,6 @@
 <script>
     new window.VLibras.Widget('https://vlibras.gov.br/app');
 </script>
-
-    <!--Classe de Alto Contraste-->
-    <div class="fixed bottom-24 left-8 z-50 flex flex-col gap-2">
-        <button onclick="toggleContrast()" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Alto Contraste">
-            <span class="material-symbols-outlined">contrast</span>
-        </button>
-        <button onclick="changeFontSize(1)" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Aumentar Fonte">
-            <span class="material-symbols-outlined">text_increase</span>
-        </button>
-        <button onclick="changeFontSize(-1)" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Diminuir Fonte">
-            <span class="material-symbols-outlined">text_decrease</span>
-        </button>
-    </div>
 
 </body>
 </html>
