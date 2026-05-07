@@ -547,8 +547,8 @@ img {
                         outline: "#6d7a72",
                         "outline-variant": "#bccac0",
                         error: "#ba1a1a"
-                    },
-                    fontFamily: {
+                    }
+                         fontFamily: {
                         manrope: ["Manrope", "sans-serif"]
                     }
                 }
