@@ -357,7 +357,8 @@ function protectPage() {
         "mapa",
         "privacidade",
         "termos",
-        "contato"
+        "contato",
+        "carrinho"
     ];
 
     if (publicPages.includes(page)) return;
@@ -1438,6 +1439,21 @@ function exportCSV(filename, rows) {
 
 function setupCarrinhoPage() {
     renderCarrinho();
+    
+    const checkoutBtn = document.getElementById("checkoutBtn");
+    if (checkoutBtn) {
+        checkoutBtn.addEventListener("click", () => {
+            const session = getSession();
+            if (!session) {
+                window.location.href = "login.html";
+            } else {
+                imprimirCupomFiscal();
+                saveCart([]);
+                renderCarrinho();
+                updateCartCount();
+            }
+        });
+    }
 }
 
 function renderCarrinho() {
@@ -1489,6 +1505,116 @@ function renderCarrinho() {
 
     if (subtotalEl) subtotalEl.textContent = formatCurrency(subtotal);
     if (totalEl) totalEl.textContent = formatCurrency(subtotal);
+}
+
+function imprimirCupomFiscal() {
+    const cart = getCart();
+    const allItems = getItems();
+    const session = getSession();
+    
+    if (cart.length === 0) return;
+
+    let total = 0;
+    const itemsHtml = cart.map(cartItem => {
+        const item = allItems.find(i => i.id === cartItem.id);
+        if (!item) return "";
+        const itemTotal = Number(item.price) * Number(cartItem.quantity);
+        total += itemTotal;
+        return `
+            <tr>
+                <td style="padding: 2px 0;">${escapeHTML(item.name)}</td>
+                <td style="text-align: center; padding: 2px 0;">${cartItem.quantity}</td>
+                <td style="text-align: right; padding: 2px 0;">${formatCurrency(item.price)}</td>
+                <td style="text-align: right; padding: 2px 0;">${formatCurrency(itemTotal)}</td>
+            </tr>
+        `;
+    }).join("");
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('pt-BR');
+    const timeStr = now.toLocaleTimeString('pt-BR');
+    
+    // Pega o nome da primeira loja encontrada nos itens do carrinho
+    const storeName = cart.length > 0 ? (allItems.find(i => i.id === cart[0].id)?.storeName || "Vitrine Digital") : "Vitrine Digital";
+
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Cupom Fiscal - ${storeName}</title>
+                <style>
+                    @media print {
+                        body { width: 80mm; margin: 0; padding: 5px; }
+                    }
+                    body { 
+                        font-family: 'Courier New', Courier, monospace; 
+                        font-size: 12px; 
+                        line-height: 1.2; 
+                        width: 300px; 
+                        margin: 0 auto; 
+                        padding: 20px;
+                        background: #fff;
+                    }
+                    .text-center { text-align: center; }
+                    .border-top { border-top: 1px dashed #000; padding-top: 5px; margin-top: 5px; }
+                    .border-bottom { border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 10px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+                    th { border-bottom: 1px dashed #000; padding: 5px 0; text-align: left; }
+                    .total-row { font-size: 14px; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; }
+                    .header h2 { margin: 0; font-size: 18px; }
+                    .header p { margin: 2px 0; }
+                </style>
+            </head>
+            <body>
+                <div class="header text-center">
+                    <h2>${storeName}</h2>
+                    <p>VITRINE DIGITAL</p>
+                    <p>--------------------------------</p>
+                    <p>Data: ${dateStr} - Hora: ${timeStr}</p>
+                    <p>--------------------------------</p>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ITEM</th>
+                            <th style="text-align: center;">QTD</th>
+                            <th style="text-align: right;">UNIT</th>
+                            <th style="text-align: right;">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+                
+                <div class="border-top">
+                    <div class="total-row">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>TOTAL DO PEDIDO:</span>
+                            <span>${formatCurrency(total)}</span>
+                        </div>
+                    </div>
+                    <p style="margin-top: 10px;">Cliente: ${escapeHTML(session?.name || "Consumidor")}</p>
+                    <p style="margin-top: 5px;">Atendente: Sistema Vitrine</p>
+                </div>
+                
+                <div class="text-center border-top" style="margin-top: 20px;">
+                    <p>Obrigado pela preferência!</p>
+                    <p>Volte sempre!</p>
+                </div>
+
+                <script>
+                    window.onload = function() { 
+                        window.print(); 
+                        setTimeout(() => { window.close(); }, 500);
+                    };
+                </script>
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
 }
 
 window.updateCartQuantity = function(id, change) {
