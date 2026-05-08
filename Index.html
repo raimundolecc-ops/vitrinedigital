@@ -13,6 +13,7 @@
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
 
     <script>
         tailwind.config = {
@@ -594,38 +595,53 @@
     </footer>
 
     <!-- Botão flutuante -->
-    <a href="login.html"
-        class="fixed bottom-8 right-8 w-14 h-14 bg-emerald-600 text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-all hover:bg-emerald-700 z-40">
-        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
-    </a>
+
+    <a href="https://wa.me/5563992115861?text=Olá,%20preciso%20de%20suporte."
+   target="_blank"
+   rel="noopener noreferrer"
+   class="fixed bottom-8 right-8 w-14 h-14 bg-green-500 text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-all hover:bg-green-600 z-40"
+   aria-label="Falar com suporte pelo WhatsApp">
+   
+   <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">
+      support_agent
+   </span>
+ </a>
+
+
 
     <script src="js/script.js"></script>
 
-     <!--Acessibilidade-->
-    
-    <div vw class="enabled">
-    <div vw-access-button class="active"></div>
-    <div vw-plugin-wrapper>
-        <div vw-plugin-top-wrapper></div>
-    </div>
-</div>
-<script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
-<script>
-    new window.VLibras.Widget('https://vlibras.gov.br/app');
-</script>
+    <!--Acessibilidade-->
 
-  <!--Classe de Alto Contraste-->
-  <div class="fixed bottom-24 left-8 z-50 flex flex-col gap-2">
-    <button onclick="toggleContrast()" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Alto Contraste">
-        <span class="material-symbols-outlined">contrast</span>
-    </button>
-    <button onclick="changeFontSize(1)" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Aumentar Fonte">
-        <span class="material-symbols-outlined">text_increase</span>
-    </button>
-    <button onclick="changeFontSize(-1)" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Diminuir Fonte">
-        <span class="material-symbols-outlined">text_decrease</span>
-    </button>
-</div>
+    <div vw class="enabled">
+        <div vw-access-button class="active"></div>
+        <div vw-plugin-wrapper>
+            <div vw-plugin-top-wrapper></div>
+        </div>
+    </div>
+    <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+    <script>
+        new window.VLibras.Widget('https://vlibras.gov.br/app');
+    </script>
+
+    <!--Classe de Alto Contraste-->
+    <div class="fixed bottom-24 left-8 z-50 flex flex-col gap-2">
+        <button onclick="toggleContrast()"
+            class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all"
+            title="Alto Contraste">
+            <span class="material-symbols-outlined">contrast</span>
+        </button>
+        <button onclick="changeFontSize(1)"
+            class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all"
+            title="Aumentar Fonte">
+            <span class="material-symbols-outlined">text_increase</span>
+        </button>
+        <button onclick="changeFontSize(-1)"
+            class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all"
+            title="Diminuir Fonte">
+            <span class="material-symbols-outlined">text_decrease</span>
+        </button>
+    </div>
 
 </body>
 

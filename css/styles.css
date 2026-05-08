@@ -531,31 +531,9 @@ img {
     color: var(--muted);
 }
 
- tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        primary: "#006948",
-                        "primary-container": "#00855d",
-                        background: "#f5fbf5",
-                        surface: "#ffffff",
-                        "surface-container": "#e9efe9",
-                        "on-surface": "#171d19",
-                        "on-background": "#171d19",
-                        "on-surface-variant": "#3d4a42",
-                        outline: "#6d7a72",
-                        "outline-variant": "#bccac0",
-                        error: "#ba1a1a"
-                    }
-                         fontFamily: {
-                        manrope: ["Manrope", "sans-serif"]
-                    }
-                }
-            }
-        };
 
 /* Responsivo */
+
 
 @media (max-width: 992px) {
     .sidebar {
