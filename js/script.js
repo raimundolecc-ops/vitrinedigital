@@ -1473,6 +1473,7 @@ function imprimirCupom() {
         return `
             <tr>
                 <td style="padding: 5px 0;">${item.name} (x${cartItem.quantity})</td>
+                <td style="padding: 5px 0; text-align: right;">${formatCurrency(item.price)}</td>
                 <td style="padding: 5px 0; text-align: right;">${formatCurrency(total)}</td>
             </tr>
         `;
@@ -1501,7 +1502,16 @@ function imprimirCupom() {
             <p><strong>Data:</strong> ${new Date().toLocaleString("pt-BR")}</p>
             <div class="divider"></div>
             <table>
-                ${itemsHtml}
+                <thead>
+                    <tr>
+                        <th style="padding: 5px 0; text-align: left;">Produto</th>
+                        <th style="padding: 5px 0; text-align: right;">Valor Unitário</th>
+                        <th style="padding: 5px 0; text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsHtml}
+                </tbody>
             </table>
             <div class="divider"></div>
             <div class="total">
