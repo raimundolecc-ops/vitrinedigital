@@ -54,12 +54,6 @@
             font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
         }
         
-        .store-header {
-            background-color: #006948;
-            color: white;
-            padding: 40px 0;
-            margin-bottom: 30px;
-        }
     </style>
 </head>
 
@@ -111,7 +105,7 @@
                 <a href="carrinho.html"
                     class="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-all active:scale-95 relative">
                     <span class="material-symbols-outlined">shopping_cart</span>
-                    <span class="absolute top-1 right-1 w-2 h-2 bg-emerald-600 rounded-full"></span>
+                    <span data-cart-badge class="absolute top-1 right-1 w-2 h-2 bg-emerald-600 rounded-full hidden"></span>
                 </a>
 
                 <a href="login.html"
@@ -143,12 +137,33 @@
 
     <!-- Conteúdo principal -->
     <main class="mt-20 flex-grow max-w-[1200px] mx-auto w-full px-6 md:px-8 py-8">
-        <div class="store-header w-full flex justify-center text-center">
-            <div class="max-w-[1200px] px-8">
-                <h1 id="storeNameHeader" class="text-4xl font-extrabold mb-2">Loja</h1>
-                <p id="storeDescHeader" class="text-lg opacity-90">Bem-vindo à nossa página.</p>
+        <!-- Hero -->
+        <section class="mb-12">
+            <div
+                class="relative overflow-hidden rounded-2xl bg-primary-container p-8 md:p-12 flex items-center min-h-[280px] shadow-sm">
+                <div class="z-10 max-w-xl">
+                    <span
+                        class="inline-flex items-center gap-2 bg-white/20 text-white px-4 py-2 rounded-full text-sm font-bold mb-5">
+                        <span class="material-symbols-outlined text-sm">store</span>
+                        Página da Loja
+                    </span>
+
+                    <h1 id="storeNameHeader" class="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-2">
+                        Loja
+                    </h1>
+
+                    <p id="storeDescHeader" class="text-lg text-white/90 mb-0">
+                        Bem-vindo à nossa página. Explore nossos produtos e serviços.
+                    </p>
+                </div>
+
+                <div class="absolute right-0 top-0 w-1/2 h-full hidden lg:block">
+                    <img class="w-full h-full object-cover opacity-70" alt="Banner da loja"
+                        src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80" />
+                    <div class="absolute inset-0 bg-gradient-to-r from-primary-container to-transparent"></div>
+                </div>
             </div>
-        </div>
+        </section>
 
         <div class="max-w-[1200px] mx-auto px-6 md:px-8 pb-12">
             <div class="flex items-center justify-between mb-6">

@@ -114,7 +114,7 @@
                 <a href="carrinho.html"
                     class="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-all active:scale-95 relative">
                     <span class="material-symbols-outlined">shopping_cart</span>
-                    <span class="absolute top-1 right-1 w-2 h-2 bg-emerald-600 rounded-full"></span>
+                    <span data-cart-badge class="absolute top-1 right-1 w-2 h-2 bg-emerald-600 rounded-full hidden"></span>
                 </a>
 
                 <a href="login.html"
@@ -198,12 +198,16 @@
             </div>
 
             <div class="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-                <div class="h-96 bg-slate-100 flex items-center justify-center">
-                    <div class="text-center">
-                        <span class="material-symbols-outlined text-slate-400 text-6xl mb-4">map</span>
-                        <p class="text-slate-500">Mapa interativo será carregado aqui</p>
-                        <p class="text-xs text-slate-400 mt-2">Integração com Google Maps ou similar</p>
-                    </div>
+                <div class="h-[500px] w-full">
+                    <iframe 
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d12469.756182103415!2d-48.3323067!3d-10.1843793!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x933b2e3f5e5b3b3b%3A0x1d3a5a5a5a5a5a5a!2sPalmas%2C%20TO!5e0!3m2!1spt-BR!2sbr!4v1715200000000!5m2!1spt-BR!2sbr" 
+                        width="100%" 
+                        height="100%" 
+                        style="border:0;" 
+                        allowfullscreen="" 
+                        loading="lazy" 
+                        referrerpolicy="no-referrer-when-downgrade">
+                    </iframe>
                 </div>
             </div>
         </section>

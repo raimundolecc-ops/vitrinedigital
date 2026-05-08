@@ -151,6 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initStorage();
     setupGlobalLinks();
     setupLogoutGlobal();
+    setupMobileMenu();
     protectPage();
 
     const page = document.body.dataset.page;
@@ -391,6 +392,42 @@ function setupGlobalLinks() {
     setupUserInfo();
 }
 
+function setupMobileMenu() {
+    const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+    const closeMobileMenu = document.getElementById("closeMobileMenu");
+    const mobileMenuOverlay = document.getElementById("mobileMenuOverlay");
+
+    if (!mobileMenuBtn || !mobileMenuOverlay) return;
+
+    mobileMenuBtn.addEventListener("click", () => {
+        mobileMenuOverlay.classList.remove("hidden");
+        mobileMenuOverlay.style.display = "block";
+        document.body.style.overflow = "hidden"; // Prevent scrolling
+    });
+
+    const closeMenu = () => {
+        mobileMenuOverlay.classList.add("hidden");
+        mobileMenuOverlay.style.display = "none";
+        document.body.style.overflow = ""; // Restore scrolling
+    };
+
+    if (closeMobileMenu) {
+        closeMobileMenu.addEventListener("click", closeMenu);
+    }
+
+    mobileMenuOverlay.addEventListener("click", (e) => {
+        if (e.target === mobileMenuOverlay) {
+            closeMenu();
+        }
+    });
+
+    // Close menu when clicking on a link
+    const mobileLinks = mobileMenuOverlay.querySelectorAll("nav a");
+    mobileLinks.forEach(link => {
+        link.addEventListener("click", closeMenu);
+    });
+}
+
 function setupLogoutGlobal() {
     const logoutButtons = document.querySelectorAll("[data-logout]");
 
@@ -407,13 +444,24 @@ function setupLogoutGlobal() {
 
 function updateCartCount() {
     const cartCount = document.querySelector("[data-cart-count]");
+    const cartBadges = document.querySelectorAll("[data-cart-badge]");
     const savedCart = getCart();
 
+    const totalItems = savedCart.reduce((sum, item) => {
+        return sum + Number(item.quantity || 1);
+    }, 0);
+
     if (cartCount) {
-        cartCount.textContent = savedCart.reduce((sum, item) => {
-            return sum + Number(item.quantity || 1);
-        }, 0);
+        cartCount.textContent = totalItems;
     }
+
+    cartBadges.forEach(badge => {
+        if (totalItems > 0) {
+            badge.classList.remove("hidden");
+        } else {
+            badge.classList.add("hidden");
+        }
+    });
 }
 
 function setupActiveMenu() {
