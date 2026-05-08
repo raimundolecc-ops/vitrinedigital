@@ -1438,6 +1438,98 @@ function exportCSV(filename, rows) {
 
 function setupCarrinhoPage() {
     renderCarrinho();
+
+    const checkoutBtn = document.getElementById("finalizarPedido");
+    if (checkoutBtn) {
+        checkoutBtn.onclick = () => {
+            const session = getSession();
+            if (!session) {
+                showMessage("Você precisa estar logado para finalizar o pedido.");
+                window.location.href = "login.html";
+                return;
+            }
+
+            imprimirCupom();
+        };
+    }
+}
+
+function imprimirCupom() {
+    const cart = getCart();
+    const allItems = getItems();
+    const session = getSession();
+
+    if (cart.length === 0) {
+        showMessage("Seu carrinho está vazio.");
+        return;
+    }
+
+    let subtotal = 0;
+    const itemsHtml = cart.map(cartItem => {
+        const item = allItems.find(i => i.id === cartItem.id);
+        if (!item) return "";
+        const total = item.price * cartItem.quantity;
+        subtotal += total;
+        return `
+            <tr>
+                <td style="padding: 5px 0;">${item.name} (x${cartItem.quantity})</td>
+                <td style="padding: 5px 0; text-align: right;">${formatCurrency(total)}</td>
+            </tr>
+        `;
+    }).join("");
+
+    const couponWindow = window.open("", "_blank", "width=400,height=600");
+    couponWindow.document.write(`
+        <html>
+        <head>
+            <title>Cupom LocalMarket</title>
+            <style>
+                body { font-family: 'Courier New', Courier, monospace; padding: 20px; line-height: 1.2; }
+                .text-center { text-align: center; }
+                .divider { border-top: 1px dashed #000; margin: 10px 0; }
+                table { width: 100%; border-collapse: collapse; }
+                .total { font-weight: bold; font-size: 1.2em; }
+            </style>
+        </head>
+        <body>
+            <div class="text-center">
+                <h2>LocalMarket</h2>
+                <p>Obrigado pela preferência!</p>
+            </div>
+            <div class="divider"></div>
+            <p><strong>Cliente:</strong> ${session.name}</p>
+            <p><strong>Data:</strong> ${new Date().toLocaleString("pt-BR")}</p>
+            <div class="divider"></div>
+            <table>
+                ${itemsHtml}
+            </table>
+            <div class="divider"></div>
+            <div class="total">
+                <span style="float: left;">TOTAL:</span>
+                <span style="float: right;">${formatCurrency(subtotal)}</span>
+                <div style="clear: both;"></div>
+            </div>
+            <div class="divider"></div>
+            <div class="text-center" style="margin-top: 20px;">
+                <p>Apresente este cupom na loja para retirar seus produtos.</p>
+                <p>#${Math.floor(Math.random() * 1000000)}</p>
+            </div>
+            <script>
+                window.onload = function() { 
+                    window.print(); 
+                    setTimeout(() => { window.close(); }, 500);
+                };
+            </script>
+        </body>
+        </html>
+    `);
+    couponWindow.document.close();
+    
+    // Limpar carrinho após gerar o cupom
+    saveCart([]);
+    if (typeof renderCarrinho === "function") {
+        renderCarrinho();
+    }
 }
 
 function renderCarrinho() {

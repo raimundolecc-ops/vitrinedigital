@@ -85,7 +85,7 @@
                     placeholder="Pesquisar lojas..." type="text" />
             </div>
 
-            <nav class="hidden md:flex items-center gap-6">
+            <nav class="hidden md:flex items-center gap-6" id="desktopNav">
                 <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm"
                     href="index.html">Explorar</a>
                 <a class="text-emerald-600 border-b-2 border-emerald-600 pb-1 font-semibold text-sm"
@@ -95,6 +95,11 @@
                 <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm"
                     href="mapa.html">Mapa</a>
             </nav>
+
+            <!-- Menu Mobile -->
+            <button class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-full" id="mobileMenuBtn">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
 
             <div class="flex items-center gap-3">
                 <a href="login.html"
@@ -116,6 +121,25 @@
             </div>
         </div>
     </header>
+
+    <!-- Menu Mobile Overlay -->
+    <div class="fixed inset-0 bg-black/50 z-50 hidden" id="mobileMenuOverlay" style="display: none;">
+        <div class="fixed top-0 right-0 w-64 h-full bg-white shadow-lg z-50 p-6">
+            <button class="absolute top-4 right-4 p-2 text-slate-600 hover:bg-slate-100 rounded-full" id="closeMobileMenu">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            <nav class="mt-12 flex flex-col gap-6">
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-lg"
+                    href="index.html">Explorar</a>
+                <a class="text-emerald-600 border-b-2 border-emerald-600 pb-1 font-semibold text-lg"
+                    href="loja.html">Lojas</a>
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-lg"
+                    href="ofertas.html">Ofertas</a>
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-lg"
+                    href="mapa.html">Mapa</a>
+            </nav>
+        </div>
+    </div>
 
     <!-- Conteúdo principal -->
     <main class="mt-20 flex-grow max-w-[1200px] mx-auto w-full px-6 md:px-8 py-8">
@@ -210,5 +234,5 @@
     </div>
 
 </body>
-
+.
 </html>

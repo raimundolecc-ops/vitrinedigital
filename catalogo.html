@@ -99,6 +99,18 @@
     new window.VLibras.Widget('https://vlibras.gov.br/app');
 </script>
 
+    <!--Classe de Alto Contraste-->
+    <div class="fixed bottom-24 left-8 z-50 flex flex-col gap-2">
+        <button onclick="toggleContrast()" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Alto Contraste">
+            <span class="material-symbols-outlined">contrast</span>
+        </button>
+        <button onclick="changeFontSize(1)" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Aumentar Fonte">
+            <span class="material-symbols-outlined">text_increase</span>
+        </button>
+        <button onclick="changeFontSize(-1)" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Diminuir Fonte">
+            <span class="material-symbols-outlined">text_decrease</span>
+        </button>
+    </div>
 </body>
 
 </html>
