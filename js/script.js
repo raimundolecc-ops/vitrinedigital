@@ -1,155 +1,23 @@
 // ===============================
-// LocalMarket / Hub Gestão - script geral
+// LocalMarket / Hub Gestão - script geral adaptado para API Postgres
 // Um único JS alimentando todas as páginas
 // ===============================
 
+const API_BASE = "http://localhost:8000/api";
+
 const STORAGE_KEYS = {
     session: "userSession",
-    items: "items",
     cart: "cart",
-    favorites: "favorites",
-    organizations: "organizations"
+    favorites: "favorites"
 };
-
-// ===============================
-// Usuários permitidos
-// ===============================
-
-const USERS = [
-    {
-        email: "admin@localmarket.com.br",
-        password: "admin123",
-        role: "admin",
-        name: "Administrador LocalMarket",
-        storeSlug: null,
-        redirect: "admin.html"
-    },
-    {
-        email: "green@valley.com.br",
-        password: "green123",
-        role: "comerciante",
-        name: "Green Valley Orgânicos",
-        storeSlug: "green-valley",
-        redirect: "dashboard.html"
-    },
-    {
-        email: "pao@loft.com.br",
-        password: "pao123",
-        role: "comerciante",
-        name: "The Sourdough Loft",
-        storeSlug: "sourdough-loft",
-        redirect: "dashboard.html"
-    },
-    {
-        email: "bloom@stem.com.br",
-        password: "bloom123",
-        role: "comerciante",
-        name: "Bloom & Stem",
-        storeSlug: "bloom-stem",
-        redirect: "dashboard.html"
-    }
-];
-
-// ===============================
-// Dados iniciais
-// ===============================
-
-const DEFAULT_ITEMS = [
-    {
-        id: "ITEM-001",
-        ownerSlug: "green-valley",
-        storeName: "Green Valley Orgânicos",
-        name: "Cesta Orgânica",
-        category: "Produto",
-        description: "Cesta com produtos frescos selecionados.",
-        price: 79.9,
-        quantity: 18,
-        status: "Ativo",
-        image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80",
-        featured: true,
-        createdAt: "2026-05-01"
-    },
-    {
-        id: "ITEM-002",
-        ownerSlug: "sourdough-loft",
-        storeName: "The Sourdough Loft",
-        name: "Pão Artesanal",
-        category: "Produto",
-        description: "Pão de fermentação natural produzido artesanalmente.",
-        price: 22.5,
-        quantity: 12,
-        status: "Ativo",
-        image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80",
-        featured: true,
-        createdAt: "2026-05-02"
-    },
-    {
-        id: "ITEM-003",
-        ownerSlug: "bloom-stem",
-        storeName: "Bloom & Stem",
-        name: "Arranjo Floral",
-        category: "Produto",
-        description: "Arranjo decorativo com flores naturais.",
-        price: 65,
-        quantity: 6,
-        status: "Ativo",
-        image: "https://images.unsplash.com/photo-1487070183336-b863922373d4?auto=format&fit=crop&w=900&q=80",
-        featured: true,
-        createdAt: "2026-05-03"
-    },
-    {
-        id: "ITEM-004",
-        ownerSlug: "green-valley",
-        storeName: "Green Valley Orgânicos",
-        name: "Suco Natural",
-        category: "Produto",
-        description: "Suco natural feito com frutas frescas.",
-        price: 14.9,
-        quantity: 4,
-        status: "Baixo estoque",
-        image: "https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=900&q=80",
-        featured: false,
-        createdAt: "2026-05-04"
-    }
-];
-
-const DEFAULT_ORGANIZATIONS = [
-    {
-        id: "ORG-001",
-        name: "Green Valley Orgânicos",
-        category: "Orgânicos",
-        location: "Centro da cidade",
-        status: "Ativo",
-        storeSlug: "green-valley",
-        createdAt: "2026-01-10"
-    },
-    {
-        id: "ORG-002",
-        name: "The Sourdough Loft",
-        category: "Padaria",
-        location: "Bairro histórico",
-        status: "Ativo",
-        storeSlug: "sourdough-loft",
-        createdAt: "2026-02-05"
-    },
-    {
-        id: "ORG-003",
-        name: "Bloom & Stem",
-        category: "Flores",
-        location: "Jardim Leste",
-        status: "Ativo",
-        storeSlug: "bloom-stem",
-        createdAt: "2026-03-12"
-    }
-];
 
 // ===============================
 // Inicialização
 // ===============================
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     initStorage();
-    setupGlobalLinks();
+    await setupGlobalLinks();
     setupLogoutGlobal();
     setupMobileMenu();
     protectPage();
@@ -165,27 +33,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (page === "catalogo") {
-        setupCatalogoPage();
+        await setupCatalogoPage();
     }
 
     if (page === "dashboard") {
-        setupDashboardPage();
+        await setupDashboardPage();
     }
 
     if (page === "cadastro") {
-        setupCadastroPage();
+        await setupCadastroPage();
     }
 
     if (page === "admin") {
-        setupAdminPage();
+        await setupAdminPage();
     }
 
     if (page === "loja") {
-        setupLojaPage();
+        await setupLojaPage();
     }
 
     if (page === "carrinho") {
-        setupCarrinhoPage();
+        await setupCarrinhoPage();
     }
 });
 
@@ -194,29 +62,13 @@ document.addEventListener("DOMContentLoaded", () => {
 // ===============================
 
 function initStorage() {
-    if (!localStorage.getItem(STORAGE_KEYS.items)) {
-        localStorage.setItem(STORAGE_KEYS.items, JSON.stringify(DEFAULT_ITEMS));
-    }
-
-    if (!localStorage.getItem(STORAGE_KEYS.organizations)) {
-        localStorage.setItem(STORAGE_KEYS.organizations, JSON.stringify(DEFAULT_ORGANIZATIONS));
-    }
-
+    // Mantemos inicialização do cart e favorites local apenas para visitantes
     if (!localStorage.getItem(STORAGE_KEYS.cart)) {
         localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify([]));
     }
-
     if (!localStorage.getItem(STORAGE_KEYS.favorites)) {
         localStorage.setItem(STORAGE_KEYS.favorites, JSON.stringify([]));
     }
-}
-
-function getData(key, fallback = []) {
-    return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
-}
-
-function saveData(key, data) {
-    localStorage.setItem(key, JSON.stringify(data));
 }
 
 function getSession() {
@@ -224,51 +76,84 @@ function getSession() {
 }
 
 function saveSession(user) {
-    localStorage.setItem(STORAGE_KEYS.session, JSON.stringify({
-        email: user.email,
-        role: user.role,
-        name: user.name,
-        storeSlug: user.storeSlug,
-        loggedAt: new Date().toISOString()
-    }));
+    localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(user));
 }
+
+def_session = null;
 
 function clearSession() {
     localStorage.removeItem(STORAGE_KEYS.session);
     localStorage.removeItem("localmarket_session");
 }
 
-function getItems() {
-    return getData(STORAGE_KEYS.items, DEFAULT_ITEMS);
+// Chamadas API para obter Produtos e Lojas
+
+async function getItems(slugDono = null) {
+    let url = `${API_BASE}/produtos`;
+    if (slugDono) {
+        url += `?slug_dono=${encodeURIComponent(slugDono)}`;
+    }
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Erro ao obter produtos da API");
+        return await response.json();
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
 }
 
-function saveItems(items) {
-    saveData(STORAGE_KEYS.items, items);
+async function getOrganizations() {
+    try {
+        const response = await fetch(`${API_BASE}/lojas`);
+        if (!response.ok) throw new Error("Erro ao obter lojas da API");
+        return await response.json();
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
 }
 
-function getOrganizations() {
-    return getData(STORAGE_KEYS.organizations, DEFAULT_ORGANIZATIONS);
+async function getCart() {
+    const session = getSession();
+    if (!session) {
+        return JSON.parse(localStorage.getItem(STORAGE_KEYS.cart) || "[]");
+    }
+    try {
+        const response = await fetch(`${API_BASE}/carrinho?email=${encodeURIComponent(session.email)}`);
+        if (!response.ok) throw new Error("Erro ao obter carrinho da API");
+        return await response.json();
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
 }
 
-function saveOrganizations(organizations) {
-    saveData(STORAGE_KEYS.organizations, organizations);
+async function saveCart(cart) {
+    const session = getSession();
+    if (!session) {
+        localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify(cart));
+        await updateCartCount();
+        return;
+    }
+    // No backend, o carrinho é atualizado item por item.
+    // Esta função é usada para limpar ou atualizar itens específicos.
+    await updateCartCount();
 }
 
-function getCart() {
-    return getData(STORAGE_KEYS.cart, []);
-}
-
-function saveCart(cart) {
-    saveData(STORAGE_KEYS.cart, cart);
-    updateCartCount();
-}
-
-function getFavorites() {
-    return getData(STORAGE_KEYS.favorites, []);
-}
-
-function saveFavorites(favorites) {
-    saveData(STORAGE_KEYS.favorites, favorites);
+async function getFavorites() {
+    const session = getSession();
+    if (!session) {
+        return JSON.parse(localStorage.getItem(STORAGE_KEYS.favorites) || "[]");
+    }
+    try {
+        const response = await fetch(`${API_BASE}/favoritos?email=${encodeURIComponent(session.email)}`);
+        if (!response.ok) throw new Error("Erro ao obter favoritos da API");
+        return await response.json();
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
 }
 
 function showMessage(message) {
@@ -284,7 +169,6 @@ function formatCurrency(value) {
 
 function formatDate(value) {
     if (!value) return "-";
-
     return new Date(value).toLocaleDateString("pt-BR");
 }
 
@@ -356,6 +240,7 @@ function protectPage() {
         "lojas",
         "loja",
         "mapa",
+        "mapas",
         "privacidade",
         "termos",
         "contato"
@@ -386,8 +271,8 @@ function protectPage() {
 // Funções globais
 // ===============================
 
-function setupGlobalLinks() {
-    updateCartCount();
+async function setupGlobalLinks() {
+    await updateCartCount();
     setupActiveMenu();
     setupUserInfo();
 }
@@ -434,18 +319,16 @@ function setupLogoutGlobal() {
     logoutButtons.forEach(button => {
         button.addEventListener("click", event => {
             event.preventDefault();
-
             clearSession();
-
             window.location.href = "index.html";
         });
     });
 }
 
-function updateCartCount() {
+async function updateCartCount() {
     const cartCount = document.querySelector("[data-cart-count]");
     const cartBadges = document.querySelectorAll("[data-cart-badge]");
-    const savedCart = getCart();
+    const savedCart = await getCart();
 
     const totalItems = savedCart.reduce((sum, item) => {
         return sum + Number(item.quantity || 1);
@@ -490,7 +373,7 @@ function setupUserInfo() {
 // Página da Loja - loja.html
 // ===============================
 
-function setupLojaPage() {
+async function setupLojaPage() {
     const params = new URLSearchParams(window.location.search);
     const storeSlug = params.get("loja");
     const lojaTitle = document.getElementById("lojaTitle");
@@ -498,7 +381,7 @@ function setupLojaPage() {
     if (!storeSlug) {
         const storeNameHeader = document.getElementById("storeNameHeader");
         const storeDescHeader = document.getElementById("storeDescHeader");
-        
+
         if (storeNameHeader) {
             storeNameHeader.textContent = "Nossas Lojas";
         }
@@ -508,33 +391,38 @@ function setupLojaPage() {
         if (lojaTitle) {
             lojaTitle.textContent = "Lojas Disponíveis";
         }
-        
-        renderAllStores();
+
+        await renderAllStores();
         return;
     }
 
-    const storeUser = USERS.find(u => u.storeSlug === storeSlug);
-    
+    // Busca dinâmica nas lojas cadastradas
+    const organizations = await getOrganizations();
+    const storeOrg = organizations.find(o => o.slug_loja === storeSlug);
+
     const storeNameHeader = document.getElementById("storeNameHeader");
     const storeDescHeader = document.getElementById("storeDescHeader");
-    
+
     if (storeNameHeader) {
-        storeNameHeader.textContent = storeUser ? storeUser.name : "Loja Parceira";
+        storeNameHeader.textContent = storeOrg ? storeOrg.nome : "Loja Parceira";
+    }
+    if (storeDescHeader && storeOrg) {
+        storeDescHeader.textContent = `Categoria: ${storeOrg.categoria} | Localização: ${storeOrg.localizacao}`;
     }
     if (lojaTitle) {
         lojaTitle.textContent = "Nossos Produtos";
     }
 
-    renderLojaItems(storeSlug);
+    await renderLojaItems(storeSlug);
 }
 
-function renderAllStores() {
+async function renderAllStores() {
     const grid = document.getElementById("lojaGrid");
     const emptyMessage = document.getElementById("emptyLojaMessage");
 
     if (!grid) return;
 
-    let organizations = getOrganizations();
+    let organizations = await getOrganizations();
 
     if (organizations.length === 0) {
         if (emptyMessage) {
@@ -554,31 +442,26 @@ function renderAllStores() {
         const storeImages = {
             "green-valley": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80",
             "sourdough-loft": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80",
-            "bloom-stem": "https://images.unsplash.com/photo-1487070183336-b863922373d4?auto=format&fit=crop&w=900&q=80",
-            "origin-coffee": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80",
-            "minimal-home": "https://images.unsplash.com/photo-1513161455079-7dc1de15ef3e?auto=format&fit=crop&w=900&q=80",
-            "urban-thread": "https://images.unsplash.com/photo-1521334884684-d80222895322?auto=format&fit=crop&w=900&q=80",
-            "clay-kiln": "https://images.unsplash.com/photo-1493106641515-6b5631de4bb9?auto=format&fit=crop&w=900&q=80",
-            "heritage-deli": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80"
+            "bloom-stem": "https://images.unsplash.com/photo-1487070183336-b863922373d4?auto=format&fit=crop&w=900&q=80"
         };
-        const imageUrl = storeImages[org.storeSlug] || "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=900&q=80";
+        const imageUrl = storeImages[org.slug_loja] || "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=900&q=80";
 
         return `
             <article class="bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col h-full">
                 <div class="aspect-square relative overflow-hidden bg-slate-100 flex-shrink-0 border-b border-slate-100 flex items-center justify-center">
-                     <img class="w-full h-full object-cover" src="${imageUrl}" alt="${escapeHTML(org.name)}">
+                     <img class="w-full h-full object-cover" src="${imageUrl}" alt="${escapeHTML(org.nome)}">
                 </div>
                 <div class="p-4 flex flex-col flex-grow">
                     <span class="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-1 rounded w-fit mb-2 uppercase tracking-wider">
-                        ${escapeHTML(org.category || "Geral")}
+                        ${escapeHTML(org.categoria || "Geral")}
                     </span>
-                    <h3 class="text-xl font-extrabold text-slate-900 mb-1">${escapeHTML(org.name)}</h3>
+                    <h3 class="text-xl font-extrabold text-slate-900 mb-1">${escapeHTML(org.nome)}</h3>
                     <p class="text-sm font-semibold text-slate-500 mb-3 flex-grow flex items-center gap-1">
                         <span class="material-symbols-outlined text-sm">location_on</span>
-                        ${escapeHTML(org.location || "Sem localização")}
+                        ${escapeHTML(org.localizacao || "Sem localização")}
                     </p>
                     <div class="mt-auto pt-2">
-                        <a href="loja.html?loja=${escapeHTML(org.storeSlug)}" class="block w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all text-center shadow-sm">
+                        <a href="loja.html?loja=${escapeHTML(org.slug_loja)}" class="block w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all text-center shadow-sm">
                             Visitar loja
                         </a>
                     </div>
@@ -588,15 +471,15 @@ function renderAllStores() {
     }).join("");
 }
 
-function renderLojaItems(storeSlug) {
+async function renderLojaItems(storeSlug) {
     const grid = document.getElementById("lojaGrid");
     const emptyMessage = document.getElementById("emptyLojaMessage");
 
     if (!grid) return;
 
-    let items = getItems().filter(item => {
-        return (item.ownerSlug === storeSlug) && 
-               (item.status === "Ativo" || item.status === "Baixo estoque" || item.status === "Baixo volume");
+    let items = await getItems(storeSlug);
+    items = items.filter(item => {
+        return item.status === "Ativo" || item.status === "Baixo estoque" || item.status === "Baixo volume";
     });
 
     if (items.length === 0) {
@@ -611,16 +494,16 @@ function renderLojaItems(storeSlug) {
         return `
             <article class="bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col h-full">
                 <div class="aspect-square relative overflow-hidden bg-white flex-shrink-0 border-b border-slate-100">
-                    <img class="w-full h-full object-contain p-4 mix-blend-multiply" src="${escapeHTML(item.image || makePlaceholder(item.name))}" alt="${escapeHTML(item.name)}">
+                    <img class="w-full h-full object-contain p-4 mix-blend-multiply" src="${escapeHTML(item.imagem || makePlaceholder(item.nome))}" alt="${escapeHTML(item.nome)}">
                 </div>
                 <div class="p-4 flex flex-col flex-grow">
                     <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded w-fit mb-2">
-                        ${escapeHTML(item.category)}
+                        ${escapeHTML(item.categoria)}
                     </span>
-                    <h3 class="text-lg font-extrabold text-slate-900 mb-1">${escapeHTML(item.name)}</h3>
-                    <p class="text-sm text-slate-500 mb-3 flex-grow line-clamp-2">${escapeHTML(item.description || "Sem descrição.")}</p>
+                    <h3 class="text-lg font-extrabold text-slate-900 mb-1">${escapeHTML(item.nome)}</h3>
+                    <p class="text-sm text-slate-500 mb-3 flex-grow line-clamp-2">${escapeHTML(item.descricao || "Sem descrição.")}</p>
                     <div class="mt-auto">
-                        <strong class="text-xl text-slate-900 block mb-3">${formatCurrency(item.price)}</strong>
+                        <strong class="text-xl text-slate-900 block mb-3">${formatCurrency(item.preco)}</strong>
                         <button class="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg hover:bg-emerald-700 transition" data-add-cart="${escapeHTML(item.id)}">
                             Comprar
                         </button>
@@ -721,7 +604,7 @@ function setupLoginPage() {
 
     if (!loginForm) return;
 
-    loginForm.addEventListener("submit", event => {
+    loginForm.addEventListener("submit", async event => {
         event.preventDefault();
 
         const email = document.getElementById("email")?.value.trim().toLowerCase();
@@ -739,19 +622,28 @@ function setupLoginPage() {
 
         const requestedRole = selectedRole === "usuario" ? "comerciante" : selectedRole;
 
-        const user = USERS.find(account => {
-            return account.email === email &&
-                account.password === password &&
-                account.role === requestedRole;
-        });
+        try {
+            const response = await fetch(`${API_BASE}/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password, role: requestedRole })
+            });
 
-        if (!user) {
-            showMessage("E-mail ou senha incorretos para este tipo de acesso.");
-            return;
+            if (!response.ok) {
+                const err = await response.json();
+                showMessage(err.detail || "E-mail ou senha incorretos.");
+                return;
+            }
+
+            const session = await response.json();
+            saveSession(session);
+            
+            const redirect = session.role === "admin" ? "admin.html" : "dashboard.html";
+            window.location.href = redirect;
+        } catch (e) {
+            showMessage("Erro ao conectar ao servidor de autenticação.");
+            console.error(e);
         }
-
-        saveSession(user);
-        window.location.href = user.redirect;
     });
 }
 
@@ -759,11 +651,11 @@ function setupLoginPage() {
 // Catálogo - catalogo.html
 // ===============================
 
-function setupCatalogoPage() {
-    renderCatalogo();
+async function setupCatalogoPage() {
+    await renderCatalogo();
 }
 
-function renderCatalogo() {
+async function renderCatalogo() {
     const grid = document.getElementById("catalogGrid");
     const searchInput = document.getElementById("catalogSearch");
     const categorySelect = document.getElementById("catalogCategory");
@@ -771,10 +663,12 @@ function renderCatalogo() {
 
     if (!grid) return;
 
+    const itemsList = await getItems();
+
     function loadCategories() {
         if (!categorySelect) return;
 
-        const categories = [...new Set(getItems().map(item => item.category))];
+        const categories = [...new Set(itemsList.map(item => item.categoria))];
 
         categorySelect.innerHTML = `
             <option value="Todos">Todas as categorias</option>
@@ -784,8 +678,9 @@ function renderCatalogo() {
         `;
     }
 
-    function render() {
-        let items = getItems().filter(item => {
+    async function render() {
+        let items = await getItems();
+        items = items.filter(item => {
             return item.status === "Ativo" ||
                 item.status === "Baixo estoque" ||
                 item.status === "Baixo volume";
@@ -797,52 +692,52 @@ function renderCatalogo() {
 
         if (term) {
             items = items.filter(item => {
-                const text = `${item.name} ${item.category} ${item.description} ${item.storeName || ""}`.toLowerCase();
+                const text = `${item.nome} ${item.categoria} ${item.descricao} ${item.nome_loja || ""}`.toLowerCase();
                 return text.includes(term);
             });
         }
 
         if (selectedCategory !== "Todos") {
-            items = items.filter(item => item.category === selectedCategory);
+            items = items.filter(item => item.categoria === selectedCategory);
         }
 
         if (sort === "name") {
-            items.sort((a, b) => a.name.localeCompare(b.name));
+            items.sort((a, b) => a.nome.localeCompare(b.nome));
         }
 
         if (sort === "priceAsc") {
-            items.sort((a, b) => Number(a.price) - Number(b.price));
+            items.sort((a, b) => Number(a.preco) - Number(b.preco));
         }
 
         if (sort === "priceDesc") {
-            items.sort((a, b) => Number(b.price) - Number(a.price));
+            items.sort((a, b) => Number(b.preco) - Number(a.preco));
         }
 
         if (sort === "recent") {
-            items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            items.sort((a, b) => new Date(b.data_criacao || b.createdAt) - new Date(a.data_criacao || a.createdAt));
         }
 
-        const favorites = getFavorites();
+        const favorites = await getFavorites();
 
         grid.innerHTML = items.map(item => {
             const isFavorite = favorites.includes(item.id);
 
             return `
                 <article class="catalog-card">
-                    <img src="${escapeHTML(item.image || makePlaceholder(item.name))}" alt="${escapeHTML(item.name)}">
+                    <img src="${escapeHTML(item.imagem || makePlaceholder(item.nome))}" alt="${escapeHTML(item.nome)}">
 
                     <div class="catalog-card-body">
-                        <span class="badge text-bg-light">${escapeHTML(item.category)}</span>
+                        <span class="badge text-bg-light">${escapeHTML(item.categoria)}</span>
 
-                        <h3>${escapeHTML(item.name)}</h3>
+                        <h3>${escapeHTML(item.nome)}</h3>
 
-                        <p>${escapeHTML(item.description || "Sem descrição.")}</p>
+                        <p>${escapeHTML(item.descricao || "Sem descrição.")}</p>
 
-                        <small class="text-muted">${escapeHTML(item.storeName || "LocalMarket")}</small>
+                        <small class="text-muted">${escapeHTML(item.nome_loja || "LocalMarket")}</small>
 
-                        <strong>${formatCurrency(item.price)}</strong>
+                        <strong>${formatCurrency(item.preco)}</strong>
 
-                        <small class="text-muted">${Number(item.quantity || 0)} disponíveis</small>
+                        <small class="text-muted">${Number(item.quantidade || 0)} disponíveis</small>
 
                         <div class="catalog-card-footer">
                             <button class="btn btn-primary flex-fill" data-add-cart="${escapeHTML(item.id)}">
@@ -887,44 +782,80 @@ function renderCatalogo() {
         sortSelect.addEventListener("change", render);
     }
 
-    render();
+    await render();
 }
 
 function setupCatalogActions() {
     document.querySelectorAll("[data-add-cart]").forEach(button => {
-        button.onclick = () => {
+        button.onclick = async () => {
             const itemId = button.dataset.addCart;
-            const cart = getCart();
-            const existingItem = cart.find(item => item.id === itemId);
-
-            if (existingItem) {
-                existingItem.quantity += 1;
-            } else {
-                cart.push({
-                    id: itemId,
-                    quantity: 1,
-                    addedAt: new Date().toISOString()
-                });
+            const session = getSession();
+            
+            if (!session) {
+                // Visitante
+                let cart = JSON.parse(localStorage.getItem(STORAGE_KEYS.cart) || "[]");
+                let existing = cart.find(item => item.id === itemId);
+                if (existing) {
+                    existing.quantity += 1;
+                } else {
+                    cart.push({ id: itemId, quantity: 1, addedAt: new Date().toISOString() });
+                }
+                localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify(cart));
+                await updateCartCount();
+                showMessage("Item adicionado à lista.");
+                return;
             }
 
-            saveCart(cart);
-            showMessage("Item adicionado à lista.");
+            try {
+                // Obter carrinho do usuário do backend
+                let cart = await getCart();
+                let existing = cart.find(item => item.id === itemId);
+                let newQty = existing ? existing.quantity + 1 : 1;
+
+                const response = await fetch(`${API_BASE}/carrinho`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ usuario_email: session.email, produto_id: itemId, quantidade: newQty })
+                });
+
+                if (response.ok) {
+                    await updateCartCount();
+                    showMessage("Item adicionado à lista.");
+                }
+            } catch (e) {
+                console.error(e);
+            }
         };
     });
 
     document.querySelectorAll("[data-favorite]").forEach(button => {
-        button.onclick = () => {
+        button.onclick = async () => {
             const itemId = button.dataset.favorite;
-            let favorites = getFavorites();
+            const session = getSession();
 
-            if (favorites.includes(itemId)) {
-                favorites = favorites.filter(id => id !== itemId);
-            } else {
-                favorites.push(itemId);
+            if (!session) {
+                // Visitante local
+                let favorites = JSON.parse(localStorage.getItem(STORAGE_KEYS.favorites) || "[]");
+                if (favorites.includes(itemId)) {
+                    favorites = favorites.filter(id => id !== itemId);
+                } else {
+                    favorites.push(itemId);
+                }
+                localStorage.setItem(STORAGE_KEYS.favorites, JSON.stringify(favorites));
+                await renderCatalogo();
+                return;
             }
 
-            saveFavorites(favorites);
-            renderCatalogo();
+            try {
+                await fetch(`${API_BASE}/favoritos`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ usuario_email: session.email, produto_id: itemId })
+                });
+                await renderCatalogo();
+            } catch (e) {
+                console.error(e);
+            }
         };
     });
 }
@@ -933,41 +864,41 @@ function setupCatalogActions() {
 // Dashboard - dashboard.html
 // ===============================
 
-function setupDashboardPage() {
-    renderDashboardItems();
+async function setupDashboardPage() {
+    await renderDashboardItems();
 }
 
-function getVisibleItemsForCurrentUser() {
+async function getVisibleItemsForCurrentUser() {
     const session = getSession();
-    const items = getItems();
-
     if (!session) return [];
+
+    let items = await getItems();
 
     if (session.role === "admin") {
         return items;
     }
 
     return items.filter(item => {
-        return !item.ownerSlug || item.ownerSlug === session.storeSlug;
+        return !item.slug_dono || item.slug_dono === session.storeSlug;
     });
 }
 
-function renderDashboardItems() {
+async function renderDashboardItems() {
     const table = document.getElementById("dashboardTable");
     const searchInput = document.getElementById("dashboardSearch");
     const exportButton = document.getElementById("exportItems");
 
     if (!table) return;
 
-    function render() {
+    async function render() {
         const session = getSession();
         const term = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
-        let items = getVisibleItemsForCurrentUser();
+        let items = await getVisibleItemsForCurrentUser();
 
         if (term) {
             items = items.filter(item => {
-                const text = `${item.name} ${item.category} ${item.status}`.toLowerCase();
+                const text = `${item.nome} ${item.categoria} ${item.status}`.toLowerCase();
                 return text.includes(term);
             });
         }
@@ -976,16 +907,16 @@ function renderDashboardItems() {
             return `
                 <tr>
                     <td>
-                        <strong>${escapeHTML(item.name)}</strong>
+                        <strong>${escapeHTML(item.nome)}</strong>
                         <br>
                         <small class="text-muted">${escapeHTML(item.id)}</small>
                     </td>
 
-                    <td>${escapeHTML(item.category)}</td>
+                    <td>${escapeHTML(item.categoria)}</td>
 
-                    <td>${formatCurrency(item.price)}</td>
+                    <td>${formatCurrency(item.preco)}</td>
 
-                    <td>${Number(item.quantity || 0)}</td>
+                    <td>${Number(item.quantidade || 0)}</td>
 
                     <td>
                         <span class="badge-status ${getStatusClass(item.status)}">
@@ -1016,28 +947,27 @@ function renderDashboardItems() {
             `;
         }
 
-        updateDashboardMetrics();
+        await updateDashboardMetrics();
 
         document.querySelectorAll("[data-delete-item]").forEach(button => {
-            button.addEventListener("click", () => {
+            button.addEventListener("click", async () => {
                 const id = button.dataset.deleteItem;
 
                 if (!confirm("Deseja excluir este item?")) return;
 
-                const allItems = getItems();
-                const item = allItems.find(current => current.id === id);
-
-                if (!item) return;
-
-                if (session.role !== "admin" && item.ownerSlug && item.ownerSlug !== session.storeSlug) {
-                    showMessage("Você não tem permissão para excluir este item.");
-                    return;
+                try {
+                    const response = await fetch(`${API_BASE}/produtos/${id}`, {
+                        method: "DELETE"
+                    });
+                    if (response.ok) {
+                        showMessage("Item excluído.");
+                        await render();
+                    } else {
+                        showMessage("Erro ao excluir item do banco.");
+                    }
+                } catch (e) {
+                    console.error(e);
                 }
-
-                const updatedItems = allItems.filter(current => current.id !== id);
-
-                saveItems(updatedItems);
-                render();
             });
         });
     }
@@ -1047,17 +977,20 @@ function renderDashboardItems() {
     }
 
     if (exportButton) {
-        exportButton.addEventListener("click", () => {
-            exportCSV("registros.csv", getVisibleItemsForCurrentUser());
+        exportButton.addEventListener("click", async () => {
+            exportCSV("registros.csv", await getVisibleItemsForCurrentUser());
         });
     }
     
     const importFakeStoreBtn = document.getElementById("importFakeStore");
     if (importFakeStoreBtn) {
-        importFakeStoreBtn.addEventListener("click", importFromFakeStore);
+        importFakeStoreBtn.addEventListener("click", async () => {
+            await importFromFakeStore();
+            await render();
+        });
     }
 
-    render();
+    await render();
 }
 
 async function importFromFakeStore() {
@@ -1074,37 +1007,44 @@ async function importFromFakeStore() {
         const response = await fetch("https://fakestoreapi.com/products");
         const products = await response.json();
         
-        const currentItems = getItems();
         let addedCount = 0;
         
-        products.forEach(prod => {
+        for (const prod of products) {
             const userSlug = session.role === "admin" ? "admin" : session.storeSlug;
             const newId = `FS-${userSlug}-${prod.id}`;
-            const exists = currentItems.some(i => i.id === newId);
             
+            // Verificar existência no backend
+            let exists = false;
+            try {
+                const check = await fetch(`${API_BASE}/produtos/${newId}`);
+                exists = check.ok;
+            } catch (e) {}
+
             if (!exists) {
-                currentItems.push({
+                const itemData = {
                     id: newId,
-                    ownerSlug: userSlug,
-                    storeName: session.name,
-                    name: prod.title,
-                    category: prod.category,
-                    description: prod.description,
-                    price: prod.price,
-                    quantity: 10,
-                    status: "Rascunho", // Desativado por padrão
-                    image: prod.image,
-                    featured: false,
-                    createdAt: new Date().toISOString()
+                    slug_dono: userSlug,
+                    nome_loja: session.name,
+                    nome: prod.title,
+                    categoria: prod.category,
+                    descricao: prod.description,
+                    preco: prod.price,
+                    quantidade: 10,
+                    status: "Rascunho",
+                    imagem: prod.image,
+                    destaque: false
+                };
+
+                const saveRes = await fetch(`${API_BASE}/produtos`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(itemData)
                 });
-                addedCount++;
+                if (saveRes.ok) addedCount++;
             }
-        });
+        }
         
-        saveItems(currentItems);
         showMessage(addedCount > 0 ? `${addedCount} produtos importados como Rascunho com sucesso!` : "Nenhum produto novo para importar.");
-        
-        renderDashboardItems(); // Re-render table
     } catch (error) {
         showMessage("Erro ao importar produtos da Fake Store API.");
         console.error(error);
@@ -1116,8 +1056,8 @@ async function importFromFakeStore() {
     }
 }
 
-function updateDashboardMetrics() {
-    const items = getVisibleItemsForCurrentUser();
+async function updateDashboardMetrics() {
+    const items = await getVisibleItemsForCurrentUser();
 
     const total = items.length;
 
@@ -1130,7 +1070,7 @@ function updateDashboardMetrics() {
     }).length;
 
     const totalValue = items.reduce((sum, item) => {
-        return sum + Number(item.price || 0) * Number(item.quantity || 0);
+        return sum + Number(item.preco || 0) * Number(item.quantidade || 0);
     }, 0);
 
     const metricTotal = document.getElementById("metricTotal");
@@ -1148,7 +1088,7 @@ function updateDashboardMetrics() {
 // Cadastro - cadastro.html
 // ===============================
 
-function setupCadastroPage() {
+async function setupCadastroPage() {
     const form = document.getElementById("itemForm");
 
     if (!form) return;
@@ -1175,25 +1115,34 @@ function setupCadastroPage() {
         featured: document.getElementById("itemFeatured")
     };
 
-    const items = getItems();
-    const editingItem = items.find(item => item.id === editId);
+    let editingItem = null;
+    if (editId) {
+        try {
+            const res = await fetch(`${API_BASE}/produtos/${editId}`);
+            if (res.ok) {
+                editingItem = await res.json();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
 
     if (editingItem) {
-        if (session.role !== "admin" && editingItem.ownerSlug && editingItem.ownerSlug !== session.storeSlug) {
+        if (session.role !== "admin" && editingItem.slug_dono && editingItem.slug_dono !== session.storeSlug) {
             showMessage("Você não tem permissão para editar este item.");
             window.location.href = "dashboard.html";
             return;
         }
 
         if (fields.id) fields.id.value = editingItem.id;
-        if (fields.name) fields.name.value = editingItem.name;
-        if (fields.category) fields.category.value = editingItem.category;
-        if (fields.description) fields.description.value = editingItem.description;
-        if (fields.price) fields.price.value = editingItem.price;
-        if (fields.quantity) fields.quantity.value = editingItem.quantity;
+        if (fields.name) fields.name.value = editingItem.nome;
+        if (fields.category) fields.category.value = editingItem.categoria;
+        if (fields.description) fields.description.value = editingItem.descricao;
+        if (fields.price) fields.price.value = editingItem.preco;
+        if (fields.quantity) fields.quantity.value = editingItem.quantidade;
         if (fields.status) fields.status.value = editingItem.status;
-        if (fields.image) fields.image.value = editingItem.image || "";
-        if (fields.featured) fields.featured.checked = Boolean(editingItem.featured);
+        if (fields.image) fields.image.value = editingItem.imagem || "";
+        if (fields.featured) fields.featured.checked = Boolean(editingItem.destaque);
 
         const formTitle = document.getElementById("formTitle");
 
@@ -1218,7 +1167,7 @@ function setupCadastroPage() {
         });
     }
 
-    form.addEventListener("submit", event => {
+    form.addEventListener("submit", async event => {
         event.preventDefault();
 
         const name = fields.name?.value.trim();
@@ -1231,42 +1180,50 @@ function setupCadastroPage() {
         const id = fields.id?.value || `ITEM-${Date.now()}`;
         const quantity = Number(fields.quantity?.value || 0);
 
-        const ownerSlug = editingItem
-            ? editingItem.ownerSlug
+        const slug_dono = editingItem
+            ? editingItem.slug_dono
             : session.role === "admin"
                 ? "admin"
                 : session.storeSlug;
 
-        const storeName = editingItem
-            ? editingItem.storeName
+        const nome_loja = editingItem
+            ? editingItem.nome_loja
             : session.name;
 
         const item = {
             id,
-            ownerSlug,
-            storeName,
-            name,
-            category: fields.category?.value || "Produto",
-            description: fields.description?.value.trim() || "",
-            price: Number(fields.price?.value || 0),
-            quantity,
+            slug_dono,
+            nome_loja,
+            nome: name,
+            categoria: fields.category?.value || "Produto",
+            descricao: fields.description?.value.trim() || "",
+            preco: Number(fields.price?.value || 0),
+            quantidade,
             status: getStatusByQuantity(quantity, fields.status?.value),
-            image: fields.image?.value.trim() || makePlaceholder(name),
-            featured: fields.featured ? fields.featured.checked : false,
-            createdAt: editingItem ? editingItem.createdAt : new Date().toISOString()
+            imagem: fields.image?.value.trim() || makePlaceholder(name),
+            destaque: fields.featured ? fields.featured.checked : false
         };
 
-        const currentItems = getItems();
-        const exists = currentItems.some(current => current.id === id);
+        const url = editingItem ? `${API_BASE}/produtos/${id}` : `${API_BASE}/produtos`;
+        const method = editingItem ? "PUT" : "POST";
 
-        const updatedItems = exists
-            ? currentItems.map(current => current.id === id ? item : current)
-            : [...currentItems, item];
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(item)
+            });
 
-        saveItems(updatedItems);
-
-        showMessage("Item salvo com sucesso.");
-        window.location.href = "dashboard.html";
+            if (response.ok) {
+                showMessage("Item salvo com sucesso.");
+                window.location.href = "dashboard.html";
+            } else {
+                showMessage("Erro ao salvar o produto.");
+            }
+        } catch (e) {
+            showMessage("Erro ao conectar com o banco de dados.");
+            console.error(e);
+        }
     });
 }
 
@@ -1308,19 +1265,20 @@ function setupPreview(fields) {
 // Admin - admin.html
 // ===============================
 
-function setupAdminPage() {
-    renderAdmin();
+async function setupAdminPage() {
+    await renderAdmin();
 }
 
-function renderAdmin() {
+async function renderAdmin() {
     const table = document.getElementById("adminTable");
     const addButton = document.getElementById("addOrganization");
     const exportButton = document.getElementById("exportOrganizations");
 
     if (!table) return;
 
-    function render() {
-        const organizations = getOrganizations();
+    async function render() {
+        const organizations = await getOrganizations();
+        const allItems = await getItems();
 
         const adminTotal = document.getElementById("adminTotal");
         const adminActive = document.getElementById("adminActive");
@@ -1337,20 +1295,20 @@ function renderAdmin() {
             adminPending.textContent = organizations.filter(org => org.status === "Pendente").length;
         }
 
-        if (adminItems) adminItems.textContent = getItems().length;
+        if (adminItems) adminItems.textContent = allItems.length;
 
         table.innerHTML = organizations.map(org => {
             return `
                 <tr>
                     <td>
-                        <strong>${escapeHTML(org.name)}</strong>
+                        <strong>${escapeHTML(org.nome)}</strong>
                         <br>
                         <small class="text-muted">${escapeHTML(org.id)}</small>
                     </td>
 
-                    <td>${escapeHTML(org.category)}</td>
+                    <td>${escapeHTML(org.categoria)}</td>
 
-                    <td>${escapeHTML(org.location)}</td>
+                    <td>${escapeHTML(org.localizacao)}</td>
 
                     <td>
                         <span class="badge-status ${getStatusClass(org.status)}">
@@ -1358,7 +1316,7 @@ function renderAdmin() {
                         </span>
                     </td>
 
-                    <td>${formatDate(org.createdAt)}</td>
+                    <td>${formatDate(org.data_criacao)}</td>
 
                     <td class="text-end">
                         <button class="btn btn-sm btn-outline-secondary" data-change-org="${escapeHTML(org.id)}">
@@ -1384,65 +1342,70 @@ function renderAdmin() {
         }
 
         document.querySelectorAll("[data-change-org]").forEach(button => {
-            button.addEventListener("click", () => {
+            button.addEventListener("click", async () => {
                 const id = button.dataset.changeOrg;
-
-                const updated = getOrganizations().map(org => {
-                    if (org.id !== id) return org;
-
-                    return {
-                        ...org,
-                        status: org.status === "Ativo" ? "Pendente" : "Ativo"
-                    };
-                });
-
-                saveOrganizations(updated);
-                render();
+                try {
+                    const response = await fetch(`${API_BASE}/lojas/${id}/status`, {
+                        method: "PUT"
+                    });
+                    if (response.ok) {
+                        await render();
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
             });
         });
 
         document.querySelectorAll("[data-delete-org]").forEach(button => {
-            button.addEventListener("click", () => {
+            button.addEventListener("click", async () => {
                 const id = button.dataset.deleteOrg;
 
                 if (!confirm("Deseja excluir esta unidade?")) return;
 
-                const updated = getOrganizations().filter(org => org.id !== id);
-
-                saveOrganizations(updated);
-                render();
+                try {
+                    const response = await fetch(`${API_BASE}/lojas/${id}`, {
+                        method: "DELETE"
+                    });
+                    if (response.ok) {
+                        showMessage("Loja excluída.");
+                        await render();
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
             });
         });
     }
 
     if (addButton) {
-        addButton.onclick = () => {
+        addButton.onclick = async () => {
             const name = prompt("Nome da nova unidade:");
 
             if (!name) return;
 
-            const newOrganization = {
-                id: `ORG-${Date.now()}`,
-                name,
-                category: "Geral",
-                location: "Não informado",
-                status: "Pendente",
-                storeSlug: name.toLowerCase().replace(/\s+/g, "-"),
-                createdAt: new Date().toISOString()
-            };
-
-            saveOrganizations([...getOrganizations(), newOrganization]);
-            render();
+            try {
+                const response = await fetch(`${API_BASE}/lojas`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nome: name })
+                });
+                if (response.ok) {
+                    await render();
+                }
+            } catch (e) {
+                console.error(e);
+            }
         };
     }
 
     if (exportButton) {
-        exportButton.onclick = () => {
-            exportCSV("administracao.csv", getOrganizations());
+        exportButton.onclick = async () => {
+            exportCSV("administracao.csv", await getOrganizations());
         };
     }
 
-    render();
+    await render();
 }
 
 // ===============================
@@ -1484,12 +1447,12 @@ function exportCSV(filename, rows) {
 // Carrinho - carrinho.html
 // ===============================
 
-function setupCarrinhoPage() {
-    renderCarrinho();
+async function setupCarrinhoPage() {
+    await renderCarrinho();
 
     const checkoutBtn = document.getElementById("finalizarPedido");
     if (checkoutBtn) {
-        checkoutBtn.onclick = () => {
+        checkoutBtn.onclick = async () => {
             const session = getSession();
             if (!session) {
                 showMessage("Você precisa estar logado para finalizar o pedido.");
@@ -1497,14 +1460,14 @@ function setupCarrinhoPage() {
                 return;
             }
 
-            imprimirCupom();
+            await imprimirCupom();
         };
     }
 }
 
-function imprimirCupom() {
-    const cart = getCart();
-    const allItems = getItems();
+async function imprimirCupom() {
+    const cart = await getCart();
+    const allItems = await getItems();
     const session = getSession();
 
     if (cart.length === 0) {
@@ -1516,12 +1479,12 @@ function imprimirCupom() {
     const itemsHtml = cart.map(cartItem => {
         const item = allItems.find(i => i.id === cartItem.id);
         if (!item) return "";
-        const total = item.price * cartItem.quantity;
+        const total = item.preco * cartItem.quantity;
         subtotal += total;
         return `
             <tr>
-                <td style="padding: 5px 0;">${item.name} (x${cartItem.quantity})</td>
-                <td style="padding: 5px 0; text-align: right;">${formatCurrency(item.price)}</td>
+                <td style="padding: 5px 0;">${item.nome} (x${cartItem.quantity})</td>
+                <td style="padding: 5px 0; text-align: right;">${formatCurrency(item.preco)}</td>
                 <td style="padding: 5px 0; text-align: right;">${formatCurrency(total)}</td>
             </tr>
         `;
@@ -1583,14 +1546,20 @@ function imprimirCupom() {
     `);
     couponWindow.document.close();
     
-    // Limpar carrinho após gerar o cupom
-    saveCart([]);
-    if (typeof renderCarrinho === "function") {
-        renderCarrinho();
+    // Limpar carrinho no backend e localmente
+    try {
+        await fetch(`${API_BASE}/carrinho/limpar?email=${encodeURIComponent(session.email)}`, {
+            method: "POST"
+        });
+    } catch (e) {
+        console.error(e);
     }
+    
+    localStorage.removeItem(STORAGE_KEYS.cart);
+    await renderCarrinho();
 }
 
-function renderCarrinho() {
+async function renderCarrinho() {
     const list = document.getElementById("cartItemsList");
     const emptyMsg = document.getElementById("emptyCart");
     const content = document.getElementById("cartContent");
@@ -1599,8 +1568,8 @@ function renderCarrinho() {
 
     if (!list) return;
 
-    const cart = getCart();
-    const allItems = getItems();
+    const cart = await getCart();
+    const allItems = await getItems();
     
     if (cart.length === 0) {
         if (content) content.classList.add("hidden");
@@ -1617,16 +1586,16 @@ function renderCarrinho() {
         const item = allItems.find(i => i.id === cartItem.id);
         if (!item) return "";
 
-        const itemTotal = Number(item.price) * Number(cartItem.quantity);
+        const itemTotal = Number(item.preco) * Number(cartItem.quantity);
         subtotal += itemTotal;
 
         return `
             <div class="flex items-center gap-4 p-4 border-b border-slate-100 last:border-0">
-                <img src="${escapeHTML(item.image || makePlaceholder(item.name))}" class="w-20 h-20 object-cover rounded-lg">
+                <img src="${escapeHTML(item.imagem || makePlaceholder(item.nome))}" class="w-20 h-20 object-cover rounded-lg">
                 <div class="flex-grow">
-                    <h3 class="font-bold text-slate-900">${escapeHTML(item.name)}</h3>
-                    <p class="text-sm text-slate-500">${escapeHTML(item.storeName || "Loja")}</p>
-                    <div class="text-emerald-700 font-extrabold mt-1">${formatCurrency(item.price)}</div>
+                    <h3 class="font-bold text-slate-900">${escapeHTML(item.nome)}</h3>
+                    <p class="text-sm text-slate-500">${escapeHTML(item.nome_loja || "Loja")}</p>
+                    <div class="text-emerald-700 font-extrabold mt-1">${formatCurrency(item.preco)}</div>
                 </div>
                 <div class="flex items-center gap-3">
                     <button class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600" onclick="updateCartQuantity('${cartItem.id}', -1)">-</button>
@@ -1639,36 +1608,56 @@ function renderCarrinho() {
 
     if (subtotalEl) subtotalEl.textContent = formatCurrency(subtotal);
     if (totalEl) totalEl.textContent = formatCurrency(subtotal);
+    await updateCartCount();
 }
 
-window.updateCartQuantity = function(id, change) {
-    let cart = getCart();
-    const item = cart.find(i => i.id === id);
-    if (item) {
-        item.quantity += change;
-        if (item.quantity <= 0) {
-            cart = cart.filter(i => i.id !== id);
+window.updateCartQuantity = async function(id, change) {
+    const session = getSession();
+    if (!session) {
+        let cart = JSON.parse(localStorage.getItem(STORAGE_KEYS.cart) || "[]");
+        let item = cart.find(i => i.id === id);
+        if (item) {
+            item.quantity += change;
+            if (item.quantity <= 0) {
+                cart = cart.filter(i => i.id !== id);
+            }
         }
+        localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify(cart));
+        await renderCarrinho();
+        return;
     }
-    saveCart(cart);
-    renderCarrinho();
+
+    try {
+        let cart = await getCart();
+        let item = cart.find(i => i.id === id);
+        if (item) {
+            let newQty = item.quantity + change;
+            const response = await fetch(`${API_BASE}/carrinho`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ usuario_email: session.email, produto_id: id, quantidade: newQty })
+            });
+            if (response.ok) {
+                await renderCarrinho();
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
 };
 
 // ===============================
 // Lógica de Acessibilidade
 // ===============================
 
-function toggleContrast() {
-    // Alterna a classe no body
+window.toggleContrast = function() {
     document.body.classList.toggle('high-contrast');
-    
-    // Salva a escolha do usuário para as próximas páginas
     const isContrast = document.body.classList.contains('high-contrast');
-    localStorage.setItem('accessibility_contrast', isContrast);
+    localStorage.setItem('accessibility_contrast', isContrast ? 'true' : 'false');
 }
 
 let currentFontSize = 100; 
-function changeFontSize(delta) {
+window.changeFontSize = function(delta) {
     currentFontSize += delta * 10;
     
     // Limites para não quebrar o layout
@@ -1679,8 +1668,6 @@ function changeFontSize(delta) {
 }
 
 // Carregar preferências ao abrir qualquer página
-document.addEventListener("DOMContentLoaded", () => {
-    if (localStorage.getItem('accessibility_contrast') === 'true') {
-        document.body.classList.add('high-contrast');
-    }
-});
+if (localStorage.getItem('accessibility_contrast') === 'true') {
+    document.body.classList.add('high-contrast');
+}
