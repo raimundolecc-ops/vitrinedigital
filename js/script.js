@@ -11,6 +11,8 @@ const STORAGE_KEYS = {
     favorites: "favorites"
 };
 
+let activeCoupon = null;
+
 // ===============================
 // Inicialização
 // ===============================
@@ -55,6 +57,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (page === "carrinho") {
         await setupCarrinhoPage();
     }
+
+    if (page === "register") {
+        await setupRegisterPage();
+    }
+
+    if (page === "pedidos") {
+        await setupPedidosPage();
+    }
 });
 
 // ===============================
@@ -73,6 +83,18 @@ function initStorage() {
 
 function getSession() {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.session) || "null");
+}
+
+function normalizeCartItems(items) {
+    return (items || []).map(item => {
+        const quantity = Number(item?.quantity ?? item?.quantidade ?? 1);
+        return {
+            ...item,
+            id: item?.id ?? item?.produto_id,
+            quantity,
+            quantidade: quantity
+        };
+    }).filter(item => item.id);
 }
 
 function saveSession(user) {
@@ -117,12 +139,13 @@ async function getOrganizations() {
 async function getCart() {
     const session = getSession();
     if (!session) {
-        return JSON.parse(localStorage.getItem(STORAGE_KEYS.cart) || "[]");
+        return normalizeCartItems(JSON.parse(localStorage.getItem(STORAGE_KEYS.cart) || "[]"));
     }
     try {
         const response = await fetch(`${API_BASE}/carrinho?email=${encodeURIComponent(session.email)}`);
         if (!response.ok) throw new Error("Erro ao obter carrinho da API");
-        return await response.json();
+        const data = await response.json();
+        return normalizeCartItems(data);
     } catch (e) {
         console.error(e);
         return [];
@@ -156,6 +179,22 @@ async function getFavorites() {
     }
 }
 
+async function getUsuarios(role = null) {
+    let url = `${API_BASE}/usuarios`;
+    if (role) {
+        url += `?role=${encodeURIComponent(role)}`;
+    }
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Erro ao obter usuários da API");
+        return await response.json();
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
+}
+
 function showMessage(message) {
     alert(message);
 }
@@ -180,6 +219,11 @@ function escapeHTML(value) {
         "'": "&#39;",
         '"': "&quot;"
     }[char]));
+}
+
+function getQueryParam(name) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
 }
 
 function makePlaceholder(text) {
@@ -236,6 +280,7 @@ function protectPage() {
     const publicPages = [
         "home",
         "login",
+        "register",
         "catalogo",
         "lojas",
         "loja",
@@ -585,7 +630,7 @@ function setupLoginPage() {
     const loginForm = document.getElementById("loginForm");
     const roleButtons = document.querySelectorAll("[data-role-option]");
 
-    let selectedRole = "usuario";
+    let selectedRole = "cliente";
 
     const activeRoleButton = document.querySelector("[data-role-option].active");
 
@@ -620,7 +665,8 @@ function setupLoginPage() {
             return;
         }
 
-        const requestedRole = selectedRole === "usuario" ? "comerciante" : selectedRole;
+        const requestedRole = selectedRole;
+        const nextPage = getQueryParam("next");
 
         try {
             const response = await fetch(`${API_BASE}/auth/login`, {
@@ -638,13 +684,151 @@ function setupLoginPage() {
             const session = await response.json();
             saveSession(session);
             
-            const redirect = session.role === "admin" ? "admin.html" : "dashboard.html";
+            if (nextPage) {
+                window.location.href = nextPage;
+                return;
+            }
+
+            const redirect = session.role === "admin" ? "admin.html" : session.role === "comerciante" ? "dashboard.html" : "carrinho.html";
             window.location.href = redirect;
         } catch (e) {
             showMessage("Erro ao conectar ao servidor de autenticação.");
             console.error(e);
         }
     });
+}
+
+async function setupRegisterPage() {
+    const registerForm = document.getElementById("registerForm");
+    if (!registerForm) return;
+
+    registerForm.addEventListener("submit", async event => {
+        event.preventDefault();
+
+        const name = document.getElementById("name")?.value.trim();
+        const email = document.getElementById("email")?.value.trim().toLowerCase();
+        const password = document.getElementById("password")?.value.trim();
+        const nextPage = getQueryParam("next");
+
+        if (!name) {
+            showMessage("Digite seu nome.");
+            return;
+        }
+
+        if (!email) {
+            showMessage("Digite seu e-mail.");
+            return;
+        }
+
+        if (!password) {
+            showMessage("Digite sua senha.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, password })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                showMessage(err.detail || "Erro ao cadastrar.");
+                return;
+            }
+
+            const session = await response.json();
+            saveSession(session);
+            window.location.href = nextPage || "carrinho.html";
+        } catch (e) {
+            showMessage("Erro ao conectar ao servidor de cadastro.");
+            console.error(e);
+        }
+    });
+}
+
+async function setupPedidosPage() {
+    const session = getSession();
+    if (!session) {
+        window.location.href = "login.html?next=pedidos.html";
+        return;
+    }
+
+    const table = document.getElementById("pedidoTable");
+    const details = document.getElementById("orderDetails");
+    const title = document.getElementById("pedidosTitle");
+
+    if (title) {
+        title.textContent = session.role === "admin" ? "Pedidos do sistema" : "Meus pedidos";
+    }
+
+    const url = session.role === "admin" ? `${API_BASE}/pedidos` : `${API_BASE}/pedidos?email=${encodeURIComponent(session.email)}`;
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Erro ao buscar pedidos.");
+        const pedidos = await response.json();
+
+        if (!table) return;
+
+        if (pedidos.length === 0) {
+            table.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">Nenhum pedido encontrado.</td></tr>`;
+            return;
+        }
+
+        table.innerHTML = pedidos.map(pedido => `
+            <tr>
+                <td>${pedido.id}</td>
+                <td>${pedido.usuario_email}</td>
+                <td>${pedido.status}</td>
+                <td>${formatCurrency(pedido.total)}</td>
+                <td>${formatDate(pedido.criado_em)}</td>
+                <td class="text-end"><button class="btn btn-sm btn-outline-secondary" data-view-order="${pedido.id}">Ver detalhes</button></td>
+            </tr>
+        `).join("");
+
+        document.querySelectorAll("[data-view-order]").forEach(button => {
+            button.addEventListener("click", async () => {
+                const pedidoId = button.dataset.viewOrder;
+                if (!pedidoId) return;
+
+                try {
+                    const response = await fetch(`${API_BASE}/pedidos/${pedidoId}`);
+                    if (!response.ok) throw new Error("Erro ao buscar detalhes do pedido.");
+                    const pedido = await response.json();
+
+                    if (!details) return;
+                    details.innerHTML = `
+                        <h3 class="mb-3">Pedido #${pedido.id}</h3>
+                        <p><strong>Cliente:</strong> ${escapeHTML(pedido.usuario_email)}</p>
+                        <p><strong>Status:</strong> ${escapeHTML(pedido.status)}</p>
+                        <p><strong>Total:</strong> ${formatCurrency(pedido.total)}</p>
+                        <p><strong>Data:</strong> ${formatDate(pedido.criado_em)}</p>
+                        <div class="mt-4">
+                            <h4 class="mb-2">Itens</h4>
+                            <ul class="list-group">
+                                ${pedido.itens.map(item => `
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        ${escapeHTML(item.produto_id)} x${item.quantidade}
+                                        <span>${formatCurrency(item.preco_unitario)}</span>
+                                    </li>
+                                `).join("")}
+                            </ul>
+                        </div>
+                    `;
+                } catch (e) {
+                    console.error(e);
+                    showMessage("Erro ao exibir os detalhes do pedido.");
+                }
+            });
+        });
+    } catch (e) {
+        console.error(e);
+        if (table) {
+            table.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">Erro ao carregar pedidos.</td></tr>`;
+        }
+    }
 }
 
 // ===============================
@@ -866,6 +1050,7 @@ function setupCatalogActions() {
 
 async function setupDashboardPage() {
     await renderDashboardItems();
+    await renderCupons();
 }
 
 async function getVisibleItemsForCurrentUser() {
@@ -1269,6 +1454,82 @@ async function setupAdminPage() {
     await renderAdmin();
 }
 
+async function renderCupons() {
+    const table = document.getElementById("cupomTable");
+    const form = document.getElementById("cupomForm");
+
+    if (!table) return;
+
+    const session = getSession();
+    if (!session) return;
+
+    try {
+        const cupons = await fetch(`${API_BASE}/cupons?email=${encodeURIComponent(session.email)}`).then(r => r.ok ? r.json() : []);
+        table.innerHTML = cupons.length === 0 ? `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-4">Nenhum cupom criado ainda.</td>
+            </tr>
+        ` : cupons.map(cupom => `
+            <tr>
+                <td><strong>${escapeHTML(cupom.codigo)}</strong></td>
+                <td>${escapeHTML(cupom.descricao || "-")}</td>
+                <td>${escapeHTML(cupom.loja_slug || "Todos" )}${cupom.categoria ? ` / ${escapeHTML(cupom.categoria)}` : ""}</td>
+                <td>${cupom.tipo === "percentual" ? `${cupom.valor}%` : formatCurrency(cupom.valor)}</td>
+                <td>${cupom.ativo ? "Ativo" : "Inativo"}</td>
+            </tr>
+        `).join("");
+    } catch (e) {
+        console.error(e);
+    }
+
+    if (form) {
+        form.onsubmit = async (event) => {
+            event.preventDefault();
+            const codigo = document.getElementById("cupomCodigo")?.value.trim().toUpperCase();
+            const descricao = document.getElementById("cupomDescricao")?.value.trim();
+            const tipo = document.getElementById("cupomTipo")?.value;
+            const valor = Number(document.getElementById("cupomValor")?.value || 0);
+            const lojaSlug = document.getElementById("cupomLoja")?.value.trim();
+            const categoria = document.getElementById("cupomCategoria")?.value.trim();
+            const ativo = document.getElementById("cupomAtivo")?.checked ?? true;
+
+            if (!codigo || !valor) {
+                showMessage("Preencha código e valor do cupom.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/cupons`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        codigo,
+                        descricao,
+                        tipo,
+                        valor,
+                        loja_slug: lojaSlug || null,
+                        categoria: categoria || null,
+                        ativo,
+                        criado_por: session.email
+                    })
+                });
+
+                if (response.ok) {
+                    showMessage("Cupom criado com sucesso.");
+                    form.reset();
+                    await renderCupons();
+                } else {
+                    const msg = await response.text();
+                    showMessage(msg || "Erro ao criar cupom.");
+                }
+            } catch (e) {
+                showMessage("Erro ao conectar com o banco de dados.");
+                console.error(e);
+            }
+        };
+    }
+}
+
 async function renderAdmin() {
     const table = document.getElementById("adminTable");
     const addButton = document.getElementById("addOrganization");
@@ -1296,6 +1557,30 @@ async function renderAdmin() {
         }
 
         if (adminItems) adminItems.textContent = allItems.length;
+
+        const clients = await getUsuarios("cliente");
+        const adminClients = document.getElementById("adminClients");
+        const clienteTable = document.getElementById("clienteTable");
+
+        if (adminClients) adminClients.textContent = clients.length;
+        if (clienteTable) {
+            if (clients.length === 0) {
+                clienteTable.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">Nenhum cliente cadastrado.</td>
+                    </tr>
+                `;
+            } else {
+                clienteTable.innerHTML = clients.map(user => `
+                    <tr>
+                        <td>${escapeHTML(user.email)}</td>
+                        <td>${escapeHTML(user.name)}</td>
+                        <td>${formatDate(user.data_criacao)}</td>
+                        <td class="text-end">${escapeHTML(user.funcao)}</td>
+                    </tr>
+                `).join("");
+            }
+        }
 
         table.innerHTML = organizations.map(org => {
             return `
@@ -1406,6 +1691,7 @@ async function renderAdmin() {
     }
 
     await render();
+    await renderCupons();
 }
 
 // ===============================
@@ -1451,17 +1737,79 @@ async function setupCarrinhoPage() {
     await renderCarrinho();
 
     const checkoutBtn = document.getElementById("finalizarPedido");
+    const couponBtn = document.getElementById("applyCouponBtn");
+    const couponInput = document.getElementById("couponCode");
+
     if (checkoutBtn) {
         checkoutBtn.onclick = async () => {
             const session = getSession();
             if (!session) {
                 showMessage("Você precisa estar logado para finalizar o pedido.");
-                window.location.href = "login.html";
+                window.location.href = "login.html?next=carrinho.html";
                 return;
             }
 
             await imprimirCupom();
         };
+    }
+
+    if (couponBtn && couponInput) {
+        couponBtn.onclick = async () => {
+            await applyCoupon();
+        };
+
+        couponInput.addEventListener("keydown", async (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                await applyCoupon();
+            }
+        });
+    }
+}
+
+async function applyCoupon() {
+    const couponInput = document.getElementById("couponCode");
+    const couponStatus = document.getElementById("couponStatus");
+    const cart = await getCart();
+    const session = getSession();
+
+    if (!couponInput || cart.length === 0) {
+        if (couponStatus) couponStatus.textContent = "Adicione produtos ao carrinho antes de usar um cupom.";
+        return;
+    }
+
+    const codigo = couponInput.value.trim().toUpperCase();
+    if (!codigo) {
+        activeCoupon = null;
+        if (couponStatus) couponStatus.textContent = "Nenhum cupom aplicado.";
+        await renderCarrinho();
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/cupons/validar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                codigo,
+                itens: cart.map(item => ({ produto_id: item.id, quantidade: item.quantity || item.quantidade || 1 }))
+            })
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.aplicavel) {
+            activeCoupon = null;
+            if (couponStatus) couponStatus.textContent = result.mensagem || "Cupom inválido para este carrinho.";
+            await renderCarrinho();
+            return;
+        }
+
+        activeCoupon = result;
+        if (couponStatus) couponStatus.textContent = `${result.codigo} aplicado: ${result.desconto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} de desconto.`;
+        await renderCarrinho();
+    } catch (e) {
+        console.error(e);
+        if (couponStatus) couponStatus.textContent = "Não foi possível validar o cupom.";
     }
 }
 
@@ -1476,19 +1824,46 @@ async function imprimirCupom() {
     }
 
     let subtotal = 0;
+    let discount = 0;
     const itemsHtml = cart.map(cartItem => {
         const item = allItems.find(i => i.id === cartItem.id);
         if (!item) return "";
-        const total = item.preco * cartItem.quantity;
+        const qty = Number(cartItem.quantity ?? cartItem.quantidade ?? 1);
+        const total = Number(item.preco) * qty;
         subtotal += total;
         return `
             <tr>
-                <td style="padding: 5px 0;">${item.nome} (x${cartItem.quantity})</td>
+                <td style="padding: 5px 0;">${item.nome} (x${qty})</td>
                 <td style="padding: 5px 0; text-align: right;">${formatCurrency(item.preco)}</td>
                 <td style="padding: 5px 0; text-align: right;">${formatCurrency(total)}</td>
             </tr>
         `;
     }).join("");
+
+    if (activeCoupon && activeCoupon.aplicavel) {
+        discount = activeCoupon.desconto;
+    }
+
+    const pedidoRes = await fetch(`${API_BASE}/pedidos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            usuario_email: session.email,
+            itens: cart.map(item => ({ produto_id: item.id, quantidade: item.quantity || item.quantidade || 1 })),
+            total: subtotal,
+            cupom_codigo: activeCoupon?.codigo || null
+        })
+    });
+
+    if (!pedidoRes.ok) {
+        const errText = await pedidoRes.text();
+        showMessage(errText || "Não foi possível processar o pedido.");
+        return;
+    }
+
+    const pedidoData = await pedidoRes.json();
+
+    const totalComDesconto = Math.max(0, subtotal - discount);
 
     const couponWindow = window.open("", "_blank", "width=400,height=600");
     couponWindow.document.write(`
@@ -1509,6 +1884,7 @@ async function imprimirCupom() {
                 <p>Obrigado pela preferência!</p>
             </div>
             <div class="divider"></div>
+            <p><strong>Pedido:</strong> #${pedidoData.id}</p>
             <p><strong>Cliente:</strong> ${session.name}</p>
             <p><strong>Data:</strong> ${new Date().toLocaleString("pt-BR")}</p>
             <div class="divider"></div>
@@ -1533,7 +1909,7 @@ async function imprimirCupom() {
             <div class="divider"></div>
             <div class="text-center" style="margin-top: 20px;">
                 <p>Apresente este cupom na loja para retirar seus produtos.</p>
-                <p>#${Math.floor(Math.random() * 1000000)}</p>
+                <p>Pedido #${pedidoData.id}</p>
             </div>
             <script>
                 window.onload = function() { 
@@ -1556,6 +1932,11 @@ async function imprimirCupom() {
     }
     
     localStorage.removeItem(STORAGE_KEYS.cart);
+    activeCoupon = null;
+    const couponInput = document.getElementById("couponCode");
+    const couponStatus = document.getElementById("couponStatus");
+    if (couponInput) couponInput.value = "";
+    if (couponStatus) couponStatus.textContent = "Nenhum cupom aplicado.";
     await renderCarrinho();
 }
 
@@ -1581,33 +1962,53 @@ async function renderCarrinho() {
     if (emptyMsg) emptyMsg.classList.add("hidden");
 
     let subtotal = 0;
+    const discount = activeCoupon && activeCoupon.aplicavel ? activeCoupon.desconto : 0;
 
     list.innerHTML = cart.map((cartItem) => {
         const item = allItems.find(i => i.id === cartItem.id);
         if (!item) return "";
 
-        const itemTotal = Number(item.preco) * Number(cartItem.quantity);
+        const qty = Number(cartItem.quantity ?? cartItem.quantidade ?? 1);
+        const itemTotal = Number(item.preco) * qty;
         subtotal += itemTotal;
 
         return `
-            <div class="flex items-center gap-4 p-4 border-b border-slate-100 last:border-0">
-                <img src="${escapeHTML(item.imagem || makePlaceholder(item.nome))}" class="w-20 h-20 object-cover rounded-lg">
-                <div class="flex-grow">
+            <div class="flex flex-col md:flex-row md:items-center gap-4 p-4 border-b border-slate-100 last:border-0">
+                <img src="${escapeHTML(item.imagem || makePlaceholder(item.nome))}" class="w-20 h-20 object-cover rounded-lg flex-shrink-0">
+                <div class="flex-grow min-w-0">
                     <h3 class="font-bold text-slate-900">${escapeHTML(item.nome)}</h3>
                     <p class="text-sm text-slate-500">${escapeHTML(item.nome_loja || "Loja")}</p>
-                    <div class="text-emerald-700 font-extrabold mt-1">${formatCurrency(item.preco)}</div>
+                    <div class="mt-2 flex flex-wrap gap-3 text-sm text-slate-600">
+                        <span><strong>Unidades:</strong> ${qty}</span>
+                        <span><strong>Preço:</strong> ${formatCurrency(item.preco)}</span>
+                        <span><strong>Desconto:</strong> R$ 0,00</span>
+                    </div>
+                    <div class="text-emerald-700 font-extrabold mt-2">Subtotal: ${formatCurrency(itemTotal)}</div>
                 </div>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 md:ml-auto">
                     <button class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600" onclick="updateCartQuantity('${cartItem.id}', -1)">-</button>
-                    <span class="font-bold w-4 text-center">${cartItem.quantity}</span>
+                    <span class="font-bold min-w-5 text-center">${qty}</span>
                     <button class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600" onclick="updateCartQuantity('${cartItem.id}', 1)">+</button>
                 </div>
             </div>
         `;
     }).join("");
 
+    const total = Math.max(0, subtotal - discount);
     if (subtotalEl) subtotalEl.textContent = formatCurrency(subtotal);
-    if (totalEl) totalEl.textContent = formatCurrency(subtotal);
+    if (totalEl) totalEl.textContent = formatCurrency(total);
+
+    const couponStatus = document.getElementById("couponStatus");
+    if (couponStatus) {
+        if (activeCoupon && activeCoupon.aplicavel) {
+            couponStatus.textContent = `${activeCoupon.codigo} aplicado: ${formatCurrency(activeCoupon.desconto)} de desconto.`;
+        } else if (activeCoupon) {
+            couponStatus.textContent = activeCoupon.mensagem || "Cupom inválido para este carrinho.";
+        } else {
+            couponStatus.textContent = "Nenhum cupom aplicado.";
+        }
+    }
+
     await updateCartCount();
 }
 

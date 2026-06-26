@@ -135,7 +135,15 @@
                         <span>Total</span>
                         <span id="totalValue" class="text-emerald-700">R$ 0,00</span>
                     </div>
-                    <button id="finalizarPedido" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-200">
+                    <div class="border-t border-slate-100 pt-4 space-y-3">
+                        <label for="couponCode" class="text-sm font-semibold text-slate-700">Cupom de desconto</label>
+                        <div class="flex gap-2">
+                            <input id="couponCode" type="text" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="DIGITE O CUPOM">
+                            <button id="applyCouponBtn" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold">Aplicar</button>
+                        </div>
+                        <p id="couponStatus" class="text-sm text-slate-500">Nenhum cupom aplicado.</p>
+                    </div>
+                    <button id="finalizarPedido" class="w-full mt-4 bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-200">
                         Finalizar Pedido
                     </button>
                 </div>

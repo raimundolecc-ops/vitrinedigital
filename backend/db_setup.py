@@ -7,7 +7,10 @@ DB_PARAMS = "dbname=vitrine user=postgres password=1234 host=localhost port=5432
 SQL_CREATE_TABLES = """
 -- Remover tabelas existentes se houver para recriar do zero
 DROP TABLE IF EXISTS favoritos CASCADE;
+DROP TABLE IF EXISTS pedido_items CASCADE;
+DROP TABLE IF EXISTS pedidos CASCADE;
 DROP TABLE IF EXISTS carrinhos CASCADE;
+DROP TABLE IF EXISTS cupons CASCADE;
 DROP TABLE IF EXISTS produtos CASCADE;
 DROP TABLE IF EXISTS lojas CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
@@ -58,6 +61,40 @@ CREATE TABLE carrinhos (
     quantidade INTEGER NOT NULL DEFAULT 1,
     adicionado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unico_produto_usuario UNIQUE (usuario_email, produto_id)
+);
+
+-- Criar tabela pedidos
+CREATE TABLE pedidos (
+    id SERIAL PRIMARY KEY,
+    usuario_email VARCHAR(255) REFERENCES usuarios(email) ON DELETE CASCADE,
+    total NUMERIC(12,2) NOT NULL,
+    desconto_total NUMERIC(12,2) DEFAULT 0,
+    cupom_codigo VARCHAR(50),
+    status VARCHAR(50) NOT NULL DEFAULT 'Pendente',
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Criar tabela cupons
+CREATE TABLE cupons (
+    id SERIAL PRIMARY KEY,
+    codigo VARCHAR(50) UNIQUE NOT NULL,
+    descricao TEXT,
+    tipo VARCHAR(20) NOT NULL DEFAULT 'percentual',
+    valor NUMERIC(10,2) NOT NULL,
+    loja_slug VARCHAR(100),
+    categoria VARCHAR(100),
+    ativo BOOLEAN DEFAULT TRUE,
+    criado_por VARCHAR(255) REFERENCES usuarios(email) ON DELETE CASCADE,
+    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Criar tabela pedido_items
+CREATE TABLE pedido_items (
+    id SERIAL PRIMARY KEY,
+    pedido_id INTEGER REFERENCES pedidos(id) ON DELETE CASCADE,
+    produto_id VARCHAR(50) REFERENCES produtos(id) ON DELETE CASCADE,
+    quantidade INTEGER NOT NULL,
+    preco_unitario NUMERIC(10,2) NOT NULL
 );
 
 -- Criar tabela favoritos

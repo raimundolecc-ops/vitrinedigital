@@ -93,6 +93,12 @@
                     <p>Registros</p>
                     <h2 id="adminItems">0</h2>
                 </div>
+
+                <div class="metric-card">
+                    <span class="material-symbols-outlined">person</span>
+                    <p>Clientes</p>
+                    <h2 id="adminClients">0</h2>
+                </div>
             </section>
 
             <section class="content-card">
@@ -121,6 +127,96 @@
                             </tr>
                         </thead>
                         <tbody id="adminTable"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="content-card mt-4">
+                <div class="content-card-header">
+                    <div>
+                        <h2>Cupons e descontos</h2>
+                        <p>Crie cupons para lojas específicas, categorias ou para todo o marketplace.</p>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-lg-5">
+                        <div class="border rounded p-3">
+                            <h5 class="mb-3">Novo cupom</h5>
+                            <form id="cupomForm">
+                                <div class="mb-2">
+                                    <label class="form-label">Código</label>
+                                    <input type="text" class="form-control" id="cupomCodigo" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Descrição</label>
+                                    <input type="text" class="form-control" id="cupomDescricao">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Tipo</label>
+                                    <select class="form-select" id="cupomTipo">
+                                        <option value="percentual">Percentual</option>
+                                        <option value="fixo">Valor fixo</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Valor</label>
+                                    <input type="number" class="form-control" id="cupomValor" min="0" step="0.01" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Loja (opcional)</label>
+                                    <input type="text" class="form-control" id="cupomLoja" placeholder="green-valley ou deixe vazio para todos">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Categoria (opcional)</label>
+                                    <input type="text" class="form-control" id="cupomCategoria" placeholder="Produto, Padaria...">
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="cupomAtivo" checked>
+                                    <label class="form-check-label" for="cupomAtivo">Ativo</label>
+                                </div>
+                                <button class="btn btn-primary w-100" type="submit">Criar cupom</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="col-lg-7">
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Descrição</th>
+                                        <th>Alcance</th>
+                                        <th>Valor</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cupomTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="content-card mt-4">
+                <div class="content-card-header">
+                    <div>
+                        <h2>Clientes cadastrados</h2>
+                        <p>Dados dos clientes com contas no sistema.</p>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>E-mail</th>
+                                <th>Nome</th>
+                                <th>Desde</th>
+                                <th class="text-end">Função</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clienteTable"></tbody>
                     </table>
                 </div>
             </section>

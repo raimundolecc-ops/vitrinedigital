@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import psycopg
-from database import get_db_connection
+
+try:
+    from backend.database import get_db_connection
+except ImportError:
+    from database import get_db_connection
 
 app = FastAPI(title="LocalMarket API", version="1.0.0")
 
@@ -31,6 +35,45 @@ class UserSession(BaseModel):
     name: str
     storeSlug: Optional[str] = None
     loggedAt: str
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+
+class UserPublic(BaseModel):
+    email: str
+    name: str
+    funcao: str
+    slug_loja: Optional[str] = None
+    data_criacao: Optional[str] = None
+
+class OrderItem(BaseModel):
+    produto_id: str
+    quantidade: int
+
+class OrderCreate(BaseModel):
+    usuario_email: str
+    itens: List[OrderItem]
+    total: float
+    cupom_codigo: Optional[str] = None
+
+class OrderItemResponse(BaseModel):
+    produto_id: str
+    quantidade: int
+    preco_unitario: float
+
+class OrderResponse(BaseModel):
+    id: int
+    usuario_email: str
+    status: str
+    total: float
+    cupom_codigo: Optional[str] = None
+    desconto_total: float = 0
+    criado_em: Optional[str] = None
+
+class OrderDetailResponse(OrderResponse):
+    itens: List[OrderItemResponse] = []
 
 class LojaBase(BaseModel):
     id: str
@@ -100,6 +143,42 @@ class FavoritoRequest(BaseModel):
     usuario_email: str
     produto_id: str
 
+class CupomBase(BaseModel):
+    codigo: str
+    descricao: Optional[str] = None
+    tipo: str = "percentual"
+    valor: float
+    loja_slug: Optional[str] = None
+    categoria: Optional[str] = None
+    ativo: bool = True
+
+class CupomCreate(CupomBase):
+    criado_por: str
+
+class CupomResponse(CupomBase):
+    id: int
+    criado_por: str
+    data_criacao: Optional[str] = None
+
+class CupomValidationItem(BaseModel):
+    produto_id: str
+    quantidade: int
+
+class CupomValidationRequest(BaseModel):
+    codigo: str
+    itens: List[CupomValidationItem]
+
+class CupomValidationResponse(BaseModel):
+    codigo: str
+    aplicavel: bool
+    tipo: str
+    valor: float
+    desconto: float
+    descricao: Optional[str] = None
+    loja_slug: Optional[str] = None
+    categoria: Optional[str] = None
+    mensagem: str
+
 # ==========================================
 # ENDPOINTS - AUTENTICAÇÃO
 # ==========================================
@@ -127,6 +206,287 @@ def login(req: LoginRequest, conn = Depends(get_db_connection)):
             storeSlug=user["slug_loja"],
             loggedAt=datetime.datetime.now().isoformat()
         )
+
+@app.post("/api/auth/register", response_model=UserSession)
+def register(req: RegisterRequest, conn = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        cur.execute("SELECT email FROM usuarios WHERE email = %s", (req.email,))
+        if cur.fetchone():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado.")
+
+        cur.execute(
+            "INSERT INTO usuarios (email, senha, nome, funcao) VALUES (%s, %s, %s, 'cliente') RETURNING email, nome, funcao, slug_loja",
+            (req.email, req.password, req.name)
+        )
+        user = cur.fetchone()
+        conn.commit()
+
+        import datetime
+        return UserSession(
+            email=user["email"],
+            role=user["funcao"],
+            name=user["nome"],
+            storeSlug=user["slug_loja"],
+            loggedAt=datetime.datetime.now().isoformat()
+        )
+
+@app.get("/api/usuarios", response_model=List[UserPublic])
+def get_usuarios(role: Optional[str] = None, conn = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        if role:
+            cur.execute(
+                "SELECT email, nome, funcao, slug_loja, data_criacao FROM usuarios WHERE funcao = %s ORDER BY data_criacao DESC",
+                (role,)
+            )
+        else:
+            cur.execute(
+                "SELECT email, nome, funcao, slug_loja, data_criacao FROM usuarios ORDER BY data_criacao DESC"
+            )
+        users = cur.fetchall()
+        response_users = []
+        for user in users:
+            payload = {
+                "email": user["email"],
+                "name": user["nome"],
+                "funcao": user["funcao"],
+                "slug_loja": user["slug_loja"],
+                "data_criacao": user["data_criacao"].isoformat() if user["data_criacao"] else None,
+            }
+            response_users.append(payload)
+        return response_users
+
+@app.get("/api/cupons", response_model=List[CupomResponse])
+def get_cupons(email: Optional[str] = None, conn = Depends(get_db_connection)):
+    if not email:
+        return []
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT email, funcao, slug_loja FROM usuarios WHERE email = %s", (email,))
+        usuario = cur.fetchone()
+        if not usuario:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+        if usuario["funcao"] == "admin":
+            cur.execute(
+                "SELECT id, codigo, descricao, tipo, valor, loja_slug, categoria, ativo, criado_por, data_criacao FROM cupons ORDER BY data_criacao DESC"
+            )
+        else:
+            cur.execute(
+                "SELECT id, codigo, descricao, tipo, valor, loja_slug, categoria, ativo, criado_por, data_criacao FROM cupons WHERE criado_por = %s OR loja_slug = %s ORDER BY data_criacao DESC",
+                (email, usuario["slug_loja"])
+            )
+
+        cupons = cur.fetchall()
+        for cupom in cupons:
+            if cupom["data_criacao"]:
+                cupom["data_criacao"] = cupom["data_criacao"].isoformat()
+        return cupons
+
+@app.post("/api/cupons", response_model=CupomResponse)
+def create_cupom(req: CupomCreate, conn = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        cur.execute("SELECT email, funcao, slug_loja FROM usuarios WHERE email = %s", (req.criado_por,))
+        usuario = cur.fetchone()
+        if not usuario:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+        if usuario["funcao"] == "comerciante":
+            if req.loja_slug and req.loja_slug != usuario["slug_loja"]:
+                raise HTTPException(status_code=403, detail="Lojista só pode criar cupons para a sua loja.")
+            req.loja_slug = usuario["slug_loja"]
+        elif usuario["funcao"] != "admin":
+            raise HTTPException(status_code=403, detail="Acesso não autorizado.")
+
+        cur.execute("SELECT id FROM cupons WHERE codigo = %s", (req.codigo.upper(),))
+        if cur.fetchone():
+            raise HTTPException(status_code=409, detail="Código de cupom já existe.")
+
+        cur.execute(
+            """INSERT INTO cupons (codigo, descricao, tipo, valor, loja_slug, categoria, ativo, criado_por)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+               RETURNING id, codigo, descricao, tipo, valor, loja_slug, categoria, ativo, criado_por, data_criacao""",
+            (req.codigo.upper(), req.descricao, req.tipo, req.valor, req.loja_slug, req.categoria, req.ativo, req.criado_por)
+        )
+        cupom = cur.fetchone()
+        conn.commit()
+
+        if cupom["data_criacao"]:
+            cupom["data_criacao"] = cupom["data_criacao"].isoformat()
+        return cupom
+
+@app.post("/api/cupons/validar", response_model=CupomValidationResponse)
+def validar_cupom(req: CupomValidationRequest, conn = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, codigo, descricao, tipo, valor, loja_slug, categoria, ativo FROM cupons WHERE codigo = %s AND ativo = TRUE",
+            (req.codigo.upper(),)
+        )
+        cupom = cur.fetchone()
+        if not cupom:
+            raise HTTPException(status_code=404, detail="Cupom não encontrado ou inativo.")
+
+        subtotal = 0.0
+        subtotal_elegivel = 0.0
+
+        for item in req.itens:
+            cur.execute("SELECT slug_dono, categoria, preco FROM produtos WHERE id = %s", (item.produto_id,))
+            produto = cur.fetchone()
+            if not produto:
+                continue
+
+            item_total = float(produto["preco"]) * item.quantidade
+            subtotal += item_total
+
+            aplicavel = True
+            if cupom["loja_slug"] and produto["slug_dono"] != cupom["loja_slug"]:
+                aplicavel = False
+            if aplicavel and cupom["categoria"] and produto["categoria"] != cupom["categoria"]:
+                aplicavel = False
+
+            if aplicavel:
+                subtotal_elegivel += item_total
+
+        if subtotal_elegivel <= 0:
+            return CupomValidationResponse(
+                codigo=cupom["codigo"],
+                aplicavel=False,
+                tipo=cupom["tipo"],
+                valor=float(cupom["valor"]),
+                desconto=0.0,
+                descricao=cupom["descricao"],
+                loja_slug=cupom["loja_slug"],
+                categoria=cupom["categoria"],
+                mensagem="Cupom não é aplicável a este carrinho."
+            )
+
+        if cupom["tipo"] == "percentual":
+            desconto = round(subtotal_elegivel * (float(cupom["valor"]) / 100), 2)
+        else:
+            desconto = round(min(subtotal_elegivel, float(cupom["valor"])), 2)
+
+        return CupomValidationResponse(
+            codigo=cupom["codigo"],
+            aplicavel=True,
+            tipo=cupom["tipo"],
+            valor=float(cupom["valor"]),
+            desconto=desconto,
+            descricao=cupom["descricao"],
+            loja_slug=cupom["loja_slug"],
+            categoria=cupom["categoria"],
+            mensagem="Cupom aplicado com sucesso."
+        )
+
+@app.post("/api/pedidos", response_model=OrderResponse)
+def create_pedido(req: OrderCreate, conn = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        cur.execute("SELECT email FROM usuarios WHERE email = %s AND funcao = 'cliente'", (req.usuario_email,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente não encontrado.")
+
+        desconto_total = 0.0
+        cupom_codigo = req.cupom_codigo.upper() if req.cupom_codigo else None
+
+        if cupom_codigo:
+            cur.execute(
+                "SELECT codigo, tipo, valor, loja_slug, categoria FROM cupons WHERE codigo = %s AND ativo = TRUE",
+                (cupom_codigo,)
+            )
+            cupom = cur.fetchone()
+            if cupom:
+                subtotal_elegivel = 0.0
+                for item in req.itens:
+                    cur.execute("SELECT slug_dono, categoria, preco FROM produtos WHERE id = %s", (item.produto_id,))
+                    produto = cur.fetchone()
+                    if not produto:
+                        continue
+
+                    item_total = float(produto["preco"]) * item.quantidade
+                    aplicavel = True
+                    if cupom["loja_slug"] and produto["slug_dono"] != cupom["loja_slug"]:
+                        aplicavel = False
+                    if aplicavel and cupom["categoria"] and produto["categoria"] != cupom["categoria"]:
+                        aplicavel = False
+                    if aplicavel:
+                        subtotal_elegivel += item_total
+
+                if subtotal_elegivel > 0:
+                    if cupom["tipo"] == "percentual":
+                        desconto_total = round(subtotal_elegivel * (float(cupom["valor"]) / 100), 2)
+                    else:
+                        desconto_total = round(min(subtotal_elegivel, float(cupom["valor"])), 2)
+                    desconto_total = round(min(desconto_total, float(req.total)), 2)
+
+        total_final = round(float(req.total) - desconto_total, 2)
+
+        for item in req.itens:
+            cur.execute("SELECT id, quantidade, nome FROM produtos WHERE id = %s", (item.produto_id,))
+            produto = cur.fetchone()
+            if not produto:
+                raise HTTPException(status_code=404, detail=f"Produto não encontrado: {item.produto_id}")
+            if produto["quantidade"] < item.quantidade:
+                raise HTTPException(status_code=400, detail=f"Estoque insuficiente para {produto['nome']}")
+
+        cur.execute(
+            "INSERT INTO pedidos (usuario_email, total, status, cupom_codigo, desconto_total) VALUES (%s, %s, 'Pendente', %s, %s) RETURNING id, usuario_email, total, status, cupom_codigo, desconto_total, criado_em",
+            (req.usuario_email, total_final, cupom_codigo, desconto_total)
+        )
+        pedido = cur.fetchone()
+
+        for item in req.itens:
+            cur.execute(
+                "INSERT INTO pedido_items (pedido_id, produto_id, quantidade, preco_unitario) VALUES (%s, %s, %s, (SELECT preco FROM produtos WHERE id = %s))",
+                (pedido["id"], item.produto_id, item.quantidade, item.produto_id)
+            )
+            cur.execute(
+                "UPDATE produtos SET quantidade = quantidade - %s WHERE id = %s",
+                (item.quantidade, item.produto_id)
+            )
+
+        conn.commit()
+
+        if pedido["criado_em"]:
+            pedido["criado_em"] = pedido["criado_em"].isoformat()
+        return pedido
+
+@app.get("/api/pedidos", response_model=List[OrderResponse])
+def get_pedidos(email: Optional[str] = None, conn = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        if email:
+            cur.execute(
+                "SELECT id, usuario_email, total, status, criado_em FROM pedidos WHERE usuario_email = %s ORDER BY criado_em DESC",
+                (email,)
+            )
+        else:
+            cur.execute(
+                "SELECT id, usuario_email, total, status, criado_em FROM pedidos ORDER BY criado_em DESC"
+            )
+        orders = cur.fetchall()
+        for order in orders:
+            if order["criado_em"]:
+                order["criado_em"] = order["criado_em"].isoformat()
+        return orders
+
+@app.get("/api/pedidos/{pedido_id}", response_model=OrderDetailResponse)
+def get_pedido(pedido_id: int, conn = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, usuario_email, total, status, criado_em FROM pedidos WHERE id = %s",
+            (pedido_id,)
+        )
+        pedido = cur.fetchone()
+        if not pedido:
+            raise HTTPException(status_code=404, detail="Pedido não encontrado.")
+
+        cur.execute(
+            "SELECT produto_id, quantidade, preco_unitario FROM pedido_items WHERE pedido_id = %s",
+            (pedido_id,)
+        )
+        itens = cur.fetchall()
+
+        if pedido["criado_em"]:
+            pedido["criado_em"] = pedido["criado_em"].isoformat()
+
+        return {**pedido, "itens": itens}
 
 # ==========================================
 # ENDPOINTS - LOJAS
