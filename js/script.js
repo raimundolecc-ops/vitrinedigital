@@ -1198,7 +1198,7 @@ async function setupCadastroPage() {
             categoria: fields.category?.value || "Produto",
             descricao: fields.description?.value.trim() || "",
             preco: Number(fields.price?.value || 0),
-            quantidade,
+            quantidade: quantity,
             status: getStatusByQuantity(quantity, fields.status?.value),
             imagem: fields.image?.value.trim() || makePlaceholder(name),
             destaque: fields.featured ? fields.featured.checked : false

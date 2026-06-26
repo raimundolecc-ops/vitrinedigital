@@ -60,6 +60,29 @@ class ProdutoBase(BaseModel):
     class Config:
         populate_by_name = True
 
+class ProdutoCreate(BaseModel):
+    id: str
+    slug_dono: Optional[str] = None
+    nome_loja: str
+    nome: str
+    categoria: str
+    descricao: Optional[str] = None
+    preco: float
+    quantidade: int
+    status: str
+    imagem: Optional[str] = None
+    destaque: bool = False
+
+class ProdutoUpdate(BaseModel):
+    nome: str
+    categoria: str
+    descricao: Optional[str] = None
+    preco: float
+    quantidade: int
+    status: str
+    imagem: Optional[str] = None
+    destaque: bool = False
+
 class CarrinhoItem(BaseModel):
     id: str # id do produto
     quantity: int = Field(..., alias="quantidade")
@@ -207,7 +230,7 @@ def get_produto(prod_id: str, conn = Depends(get_db_connection)):
         return prod
 
 @app.post("/api/produtos", response_model=ProdutoBase)
-def create_produto(prod: ProdutoBase, conn = Depends(get_db_connection)):
+def create_produto(prod: ProdutoCreate, conn = Depends(get_db_connection)):
     with conn.cursor() as cur:
         cur.execute(
             """INSERT INTO produtos (id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque) 
@@ -222,14 +245,14 @@ def create_produto(prod: ProdutoBase, conn = Depends(get_db_connection)):
         return new_prod
 
 @app.put("/api/produtos/{prod_id}", response_model=ProdutoBase)
-def update_produto(prod_id: str, prod: ProdutoBase, conn = Depends(get_db_connection)):
+def update_produto(prod_id: str, prod: ProdutoUpdate, conn = Depends(get_db_connection)):
     with conn.cursor() as cur:
         cur.execute(
             """UPDATE produtos SET 
                nome = %s, categoria = %s, descricao = %s, preco = %s, quantidade = %s, status = %s, imagem = %s, destaque = %s 
                WHERE id = %s 
                RETURNING id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque, data_criacao""",
-            (prod.name, prod.categoria, prod.description, prod.preco, prod.quantidade, prod.status, prod.imagem, prod.destaque, prod_id)
+            (prod.nome, prod.categoria, prod.descricao, prod.preco, prod.quantidade, prod.status, prod.imagem, prod.destaque, prod_id)
         )
         updated = cur.fetchone()
         if not updated:
