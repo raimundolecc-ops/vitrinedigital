@@ -1,128 +1,105 @@
-# 🏪 LocalMarket / Vitrine Digital
+# Vitrine Digital / LocalMarket
 
-**Conectando comerciantes locais aos consumidores da comunidade.**
+Plataforma web para divulgacao de lojas locais, produtos e ofertas, com area publica para clientes e area interna para comerciantes e administradores.
 
-O **LocalMarket / Vitrine Digital** é um projeto frontend desenvolvido com **HTML, CSS, JavaScript e Bootstrap**.  
-A proposta é criar uma plataforma simples, funcional e visualmente organizada para divulgar lojas, produtos e serviços locais.
+## Visao rapida
 
-O sistema possui uma página inicial com vitrine de lojas, catálogo de produtos, login com perfis diferentes, painel do comerciante, área de cadastro e painel administrativo.
+Hoje o projeto funciona como uma aplicacao full-stack com:
 
----
+- frontend multipagina em HTML, CSS e JavaScript
+- paginas publicas com Tailwind CSS
+- area interna com Bootstrap
+- backend REST em FastAPI
+- persistencia em PostgreSQL
 
-## 📌 Informações Gerais do Projeto
+## Documentacao
 
-| Item | Descrição |
-|---|---|
-| **Nome do produto** | LocalMarket / Vitrine Digital |
-| **Tipo de projeto** | Frontend web |
-| **Problema que resolve** | Muitos pequenos comerciantes não possuem uma vitrine digital organizada para divulgar seus produtos, serviços e informações. O projeto oferece uma interface simples para conectar esses comerciantes aos consumidores. |
-| **Público-alvo** | Pequenos comerciantes, lojistas, artesãos, prestadores de serviço e consumidores interessados em encontrar lojas e produtos locais. |
-| **Objetivo principal** | Criar uma primeira versão funcional de uma plataforma de vitrine digital com navegação, cards, formulários, tabelas, login e integração planejada com API. |
-| **Tecnologias obrigatórias** | HTML, CSS, JavaScript e Bootstrap |
-| **API escolhida** | Fake Store API |
-| **Armazenamento local** | LocalStorage do navegador |
+Para deixar o repositorio organizado no GitHub, a documentacao foi separada em:
 
----
+- [Guia de Primeira Execucao](GUIA_PRIMEIRA_EXECUCAO.md)
+- [Documentacao Tecnica do Projeto](DOCUMENTACAO_TECNICA_PROJETO.md)
 
-## 🎯 Objetivo do Projeto
+## Como iniciar pela primeira vez
 
-O objetivo do projeto é desenvolver uma plataforma que permita:
+Resumo curto do fluxo inicial:
 
-- Divulgar lojas locais.
-- Exibir produtos e serviços em formato de cards.
-- Permitir que comerciantes acessem uma área interna.
-- Permitir cadastro, edição e exclusão de registros.
-- Permitir que administradores visualizem e gerenciem unidades ou lojas.
-- Simular o consumo de dados externos por meio de uma API.
+1. Criar o ambiente virtual.
+2. Ativar o ambiente.
+3. Instalar as dependencias do backend.
+4. Garantir que o PostgreSQL esteja rodando e com o banco `vitrine` criado.
+5. Executar o setup inicial do banco.
+6. Iniciar o backend.
+7. Abrir o frontend.
 
-A plataforma foi pensada como uma primeira versão de um sistema de vitrine digital para comércio local.
+### Comandos principais
 
----
+```cmd
+python -m venv vitrine
+vitrine\Scripts\activate
+pip install -r backend\requirements.txt
+python backend\db_setup.py
+python backend\main.py
+```
 
-## 🧩 Problema que o Projeto Resolve
+Para o passo a passo detalhado, incluindo PostgreSQL, validacao e problemas comuns, consulte:
 
-Pequenos comerciantes muitas vezes dependem apenas de redes sociais ou divulgação presencial para mostrar seus produtos. Isso pode dificultar que consumidores encontrem lojas, comparem produtos ou conheçam negócios da própria região.
+- [GUIA_PRIMEIRA_EXECUCAO.md](GUIA_PRIMEIRA_EXECUCAO.md)
 
-O **LocalMarket / Vitrine Digital** resolve esse problema criando uma interface onde:
+## Estrutura principal
 
-- O consumidor consegue visualizar lojas e produtos.
-- O comerciante consegue cadastrar seus próprios itens.
-- O administrador consegue acompanhar informações gerais.
-- Os dados podem ser exibidos em cards, tabelas e dashboards.
+```text
+vitrinedigital/
+|-- backend/
+|-- css/
+|-- js/
+|-- Index.html
+|-- dashboard.html
+|-- cadastro.html
+|-- admin.html
+|-- GUIA_PRIMEIRA_EXECUCAO.md
+`-- DOCUMENTACAO_TECNICA_PROJETO.md
+```
 
----
+## Contas de teste
 
-## 👥 Público-Alvo
+### Admin
 
-O projeto atende principalmente:
+- `admin@localmarket.com.br / admin123`
 
 ### Comerciantes
 
-Pequenos lojistas, produtores locais, artesãos, floriculturas, padarias, cafeterias, lojas de roupas, mercados de bairro e prestadores de serviço.
+- `green@valley.com.br / green123`
+- `pao@loft.com.br / pao123`
+- `bloom@stem.com.br / bloom123`
 
-### Consumidores
+## Stack
 
-Pessoas que desejam encontrar produtos, serviços ou lojas locais de forma simples e organizada.
+### Frontend
 
-### Administradores
+- HTML estatico
+- CSS proprio
+- JavaScript
+- Tailwind CSS
+- Bootstrap
 
-Responsáveis por controlar cadastros, unidades, lojas ou parceiros dentro da plataforma.
+### Backend
 
----
+- Python
+- FastAPI
+- Psycopg 3
+- Uvicorn
 
-## ✅ Funcionalidades Definidas
+### Banco
 
-O projeto possui mais de três funcionalidades, atendendo ao requisito solicitado.
+- PostgreSQL
 
----
+## Observacoes
 
-### 1. Página Inicial com Vitrine de Lojas
+- O backend espera uma base PostgreSQL chamada `vitrine`.
+- As configuracoes atuais de banco estao em `backend/database.py` e `backend/db_setup.py`.
+- O frontend pode ser aberto diretamente por `Index.html`, mas um servidor local simples costuma ser mais estavel para testes.
 
-A página inicial apresenta uma vitrine com lojas em destaque.
+## Proximos documentos
 
-Ela contém:
-
-- Cabeçalho fixo.
-- Logo do projeto.
-- Campo de busca.
-- Menu de navegação.
-- Banner principal.
-- Categorias.
-- Cards de lojas.
-- Botões para visitar lojas.
-- Link para login do comerciante.
-
-Essa página funciona como a entrada principal do sistema.
-
----
-
-### 2. Login com Tipos de Usuário
-
-O sistema possui uma tela de login com separação de perfis.
-
-Tipos de acesso:
-
-- **Administrador**
-- **Comerciante**
-
-Cada perfil possui uma regra de acesso diferente.
-
-O administrador é direcionado para a página administrativa.  
-O comerciante é direcionado para o dashboard de gestão.
-
-Contas de teste:
-
-```txt
-Administrador:
-E-mail: admin@localmarket.com.br
-Senha: admin123
-
-Acesso de Comerciante
-E-mail: green@valley.com.br
-Senha: green123
-
-E-mail: pao@loft.com.br
-Senha: pao123
-
-E-mail: bloom@stem.com.br
-Senha: bloom123
+- [Guia de Primeira Execucao](GUIA_PRIMEIRA_EXECUCAO.md)
+- [Documentacao Tecnica do Projeto](DOCUMENTACAO_TECNICA_PROJETO.md)
