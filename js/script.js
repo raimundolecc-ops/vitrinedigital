@@ -138,6 +138,19 @@ async function getOrganizations() {
 
 async function getCart() {
     const session = getSession();
+
+    
+
+    if (false && !session) {
+        showMessage("VocÃª precisa estar logado para finalizar o pedido.", "warning");
+        window.location.href = "login.html?next=carrinho.html";
+        return;
+    }
+
+    if (false && session.role !== "cliente") {
+        showMessage("AÃ§Ã£o nÃ£o permitida para este tipo de usuÃ¡rio. Apenas clientes podem finalizar compras.", "warning");
+        return;
+    }
     if (!session) {
         return normalizeCartItems(JSON.parse(localStorage.getItem(STORAGE_KEYS.cart) || "[]"));
     }
@@ -195,8 +208,49 @@ async function getUsuarios(role = null) {
     }
 }
 
-function showMessage(message) {
-    alert(message);
+function showMessage(message, type = "info", duration = 3200) {
+    if (!message) return;
+
+    const icons = {
+        success: "check_circle",
+        error: "error",
+        warning: "warning",
+        info: "info"
+    };
+
+    const titles = {
+        success: "Sucesso",
+        error: "Atencao",
+        warning: "Aviso",
+        info: "Informacao"
+    };
+
+    const host = ensureToastHost();
+    const toast = document.createElement("div");
+    toast.className = `app-toast app-toast-${type}`;
+    toast.innerHTML = `
+        <div class="app-toast-icon">
+            <span class="material-symbols-outlined">${icons[type] || icons.info}</span>
+        </div>
+        <div class="app-toast-body">
+            <strong>${titles[type] || titles.info}</strong>
+            <p>${escapeHTML(message)}</p>
+        </div>
+    `;
+
+    host.appendChild(toast);
+
+    requestAnimationFrame(() => {
+        toast.classList.add("is-visible");
+    });
+
+    const removeToast = () => {
+        toast.classList.remove("is-visible");
+        window.setTimeout(() => toast.remove(), 220);
+    };
+
+    window.setTimeout(removeToast, duration);
+    toast.addEventListener("click", removeToast, { once: true });
 }
 
 function formatCurrency(value) {
@@ -270,6 +324,25 @@ function getStatusClass(status) {
     return "status-indisponivel";
 }
 
+function createEmptyTableState({ colspan, icon, title, description, actionLabel = "", actionHref = "" }) {
+    const action = actionLabel && actionHref
+        ? `<a href="${actionHref}" class="table-empty-action">${escapeHTML(actionLabel)}</a>`
+        : "";
+
+    return `
+        <tr>
+            <td colspan="${colspan}" class="table-empty-cell">
+                <div class="table-empty-state">
+                    <span class="material-symbols-outlined table-empty-icon">${escapeHTML(icon)}</span>
+                    <h3>${escapeHTML(title)}</h3>
+                    <p>${escapeHTML(description)}</p>
+                    ${action}
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
 // ===============================
 // Proteção de páginas
 // ===============================
@@ -301,13 +374,13 @@ function protectPage() {
     }
 
     if (page === "admin" && session.role !== "admin") {
-        showMessage("Acesso permitido apenas para administradores.");
+        showMessage("Acesso permitido apenas para administradores.", "warning");
         window.location.href = "dashboard.html";
         return;
     }
 
     if ((page === "dashboard" || page === "cadastro") && session.role !== "admin" && session.role !== "comerciante") {
-        showMessage("Acesso permitido apenas para comerciantes ou administradores.");
+        showMessage("Acesso permitido apenas para comerciantes ou administradores.", "warning");
         window.location.href = "login.html";
     }
 }
@@ -763,6 +836,10 @@ async function setupPedidosPage() {
         title.textContent = session.role === "admin" ? "Pedidos do sistema" : "Meus pedidos";
     }
 
+    if (details) {
+        details.classList.add("hidden");
+    }
+
     const url = session.role === "admin" ? `${API_BASE}/pedidos` : `${API_BASE}/pedidos?email=${encodeURIComponent(session.email)}`;
 
     try {
@@ -773,7 +850,16 @@ async function setupPedidosPage() {
         if (!table) return;
 
         if (pedidos.length === 0) {
-            table.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">Nenhum pedido encontrado.</td></tr>`;
+            table.innerHTML = createEmptyTableState({
+                colspan: 6,
+                icon: "receipt_long",
+                title: "Nenhum pedido encontrado",
+                description: session.role === "admin"
+                    ? "Os pedidos aparecerao aqui assim que os clientes concluirem compras."
+                    : "Quando voce finalizar sua primeira compra, ela aparecera nesta lista.",
+                actionLabel: session.role === "admin" ? "Ver catalogo" : "Explorar produtos",
+                actionHref: session.role === "admin" ? "catalogo.html" : "loja.html"
+            });
             return;
         }
 
@@ -817,16 +903,23 @@ async function setupPedidosPage() {
                             </ul>
                         </div>
                     `;
+                    details.classList.remove("hidden");
+                    details.scrollIntoView({ behavior: "smooth", block: "start" });
                 } catch (e) {
                     console.error(e);
-                    showMessage("Erro ao exibir os detalhes do pedido.");
+                    showMessage("Erro ao exibir os detalhes do pedido.", "error");
                 }
             });
         });
     } catch (e) {
         console.error(e);
         if (table) {
-            table.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">Erro ao carregar pedidos.</td></tr>`;
+            table.innerHTML = createEmptyTableState({
+                colspan: 6,
+                icon: "cloud_off",
+                title: "Nao foi possivel carregar os pedidos",
+                description: "Verifique se o backend esta ativo e tente novamente em instantes."
+            });
         }
     }
 }
@@ -944,7 +1037,7 @@ async function renderCatalogo() {
             grid.innerHTML = `
                 <div class="empty-state">
                     <h3>Nenhum item encontrado</h3>
-                    <p>Tente alterar a busca ou cadastre um novo registro.</p>
+                    <p>Ajuste os filtros ou explore outras categorias para encontrar mais produtos.</p>
                 </div>
             `;
         }
@@ -986,7 +1079,7 @@ function setupCatalogActions() {
                 }
                 localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify(cart));
                 await updateCartCount();
-                showMessage("Item adicionado à lista.");
+                showMessage("Item adicionado ao carrinho.", "success");
                 return;
             }
 
@@ -1004,7 +1097,7 @@ function setupCatalogActions() {
 
                 if (response.ok) {
                     await updateCartCount();
-                    showMessage("Item adicionado à lista.");
+                    showMessage("Item adicionado ao carrinho.", "success");
                 }
             } catch (e) {
                 console.error(e);
@@ -1123,13 +1216,14 @@ async function renderDashboardItems() {
         }).join("");
 
         if (items.length === 0) {
-            table.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
-                        Nenhum registro encontrado.
-                    </td>
-                </tr>
-            `;
+            table.innerHTML = createEmptyTableState({
+                colspan: 6,
+                icon: "inventory_2",
+                title: "Nenhum registro encontrado",
+                description: "Cadastre seu primeiro item ou ajuste a busca para visualizar os produtos.",
+                actionLabel: "Cadastrar item",
+                actionHref: "cadastro.html"
+            });
         }
 
         await updateDashboardMetrics();
@@ -1145,10 +1239,10 @@ async function renderDashboardItems() {
                         method: "DELETE"
                     });
                     if (response.ok) {
-                        showMessage("Item excluído.");
+                        showMessage("Item excluído.", "success");
                         await render();
                     } else {
-                        showMessage("Erro ao excluir item do banco.");
+                        showMessage("Erro ao excluir item do banco.", "error");
                     }
                 } catch (e) {
                     console.error(e);
@@ -1515,7 +1609,7 @@ async function renderCupons() {
                 });
 
                 if (response.ok) {
-                    showMessage("Cupom criado com sucesso.");
+                    showMessage("Cupom criado com sucesso.", "success");
                     form.reset();
                     await renderCupons();
                 } else {
@@ -1565,11 +1659,12 @@ async function renderAdmin() {
         if (adminClients) adminClients.textContent = clients.length;
         if (clienteTable) {
             if (clients.length === 0) {
-                clienteTable.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="text-center text-muted py-4">Nenhum cliente cadastrado.</td>
-                    </tr>
-                `;
+                clienteTable.innerHTML = createEmptyTableState({
+                    colspan: 4,
+                    icon: "person_off",
+                    title: "Nenhum cliente cadastrado",
+                    description: "Os clientes aparecerao aqui assim que criarem uma conta na plataforma."
+                });
             } else {
                 clienteTable.innerHTML = clients.map(user => `
                     <tr>
@@ -1617,13 +1712,12 @@ async function renderAdmin() {
         }).join("");
 
         if (organizations.length === 0) {
-            table.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
-                        Nenhuma unidade cadastrada.
-                    </td>
-                </tr>
-            `;
+            table.innerHTML = createEmptyTableState({
+                colspan: 6,
+                icon: "storefront",
+                title: "Nenhuma unidade cadastrada",
+                description: "Cadastre a primeira loja ou unidade para comecar a administracao."
+            });
         }
 
         document.querySelectorAll("[data-change-org]").forEach(button => {
@@ -1749,6 +1843,11 @@ async function setupCarrinhoPage() {
                 return;
             }
 
+            if (session.role !== "cliente") {
+                showMessage("AÃ§Ã£o nÃ£o permitida para este tipo de usuÃ¡rio. FaÃ§a login com uma conta de cliente para finalizar a compra.", "warning");
+                return;
+            }
+
             await imprimirCupom();
         };
     }
@@ -1817,6 +1916,17 @@ async function imprimirCupom() {
     const cart = await getCart();
     const allItems = await getItems();
     const session = getSession();
+
+    if (!session) {
+        showMessage("Voce precisa estar logado para finalizar o pedido.", "warning");
+        window.location.href = "login.html?next=carrinho.html";
+        return;
+    }
+
+    if (session.role !== "cliente") {
+        showMessage("Acao nao permitida para este tipo de usuario. Apenas clientes podem finalizar compras.", "warning");
+        return;
+    }
 
     if (cart.length === 0) {
         showMessage("Seu carrinho está vazio.");
@@ -2071,4 +2181,17 @@ window.changeFontSize = function(delta) {
 // Carregar preferências ao abrir qualquer página
 if (localStorage.getItem('accessibility_contrast') === 'true') {
     document.body.classList.add('high-contrast');
+}
+
+function ensureToastHost() {
+    let host = document.getElementById("toastHost");
+
+    if (host) return host;
+
+    host = document.createElement("div");
+    host.id = "toastHost";
+    host.className = "toast-host";
+    document.body.appendChild(host);
+
+    return host;
 }

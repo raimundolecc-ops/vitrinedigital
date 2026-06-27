@@ -531,6 +531,118 @@ img {
     color: var(--muted);
 }
 
+.table-empty-cell {
+    padding: 28px 16px !important;
+}
+
+.table-empty-state {
+    max-width: 520px;
+    margin: 0 auto;
+    text-align: center;
+    color: var(--muted);
+}
+
+.table-empty-icon {
+    font-size: 42px;
+    color: var(--primary);
+    margin-bottom: 10px;
+}
+
+.table-empty-state h3 {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+}
+
+.table-empty-state p {
+    margin: 0;
+}
+
+.table-empty-action {
+    display: inline-flex;
+    margin-top: 16px;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+    font-weight: 800;
+}
+
+.toast-host {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.app-toast {
+    min-width: 280px;
+    max-width: 360px;
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 14px 16px;
+    border-radius: 16px;
+    color: #fff;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+    transform: translateY(-8px);
+    opacity: 0;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.app-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.app-toast-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.app-toast-body strong {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 0.95rem;
+}
+
+.app-toast-body p {
+    margin: 0;
+    line-height: 1.4;
+    font-size: 0.92rem;
+}
+
+.app-toast-success {
+    background: linear-gradient(135deg, #059669, #10b981);
+}
+
+.app-toast-error {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+}
+
+.app-toast-warning {
+    background: linear-gradient(135deg, #d97706, #f59e0b);
+}
+
+.app-toast-info {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
 
 /* Responsivo */
 
@@ -571,6 +683,18 @@ img {
     }
 
     .topbar-actions input {
+        width: 100%;
+    }
+
+    .toast-host {
+        left: 16px;
+        right: 16px;
+        top: 16px;
+    }
+
+    .app-toast {
+        min-width: 0;
+        max-width: none;
         width: 100%;
     }
 }

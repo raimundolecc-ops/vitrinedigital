@@ -18,6 +18,8 @@ Para deixar o repositorio organizado no GitHub, a documentacao foi separada em:
 
 - [Guia de Primeira Execucao](GUIA_PRIMEIRA_EXECUCAO.md)
 - [Documentacao Tecnica do Projeto](DOCUMENTACAO_TECNICA_PROJETO.md)
+- [Plano de Melhorias do Sistema](PLANO_MELHORIAS_SISTEMA.md)
+- [Checklist de Execucao - Nivel 1](CHECKLIST_EXECUCAO_NIVEL_1.md)
 
 ## Como iniciar pela primeira vez
 
@@ -103,3 +105,5 @@ vitrinedigital/
 
 - [Guia de Primeira Execucao](GUIA_PRIMEIRA_EXECUCAO.md)
 - [Documentacao Tecnica do Projeto](DOCUMENTACAO_TECNICA_PROJETO.md)
+- [Plano de Melhorias do Sistema](PLANO_MELHORIAS_SISTEMA.md)
+- [Checklist de Execucao - Nivel 1](CHECKLIST_EXECUCAO_NIVEL_1.md)

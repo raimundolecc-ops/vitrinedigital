@@ -19,6 +19,11 @@ Data da analise: 2026-06-27
 - [13. Recomendacoes priorizadas](#13-recomendacoes-priorizadas)
 - [14. Conclusao](#14-conclusao)
 
+Documentos relacionados:
+
+- [GUIA_PRIMEIRA_EXECUCAO.md](GUIA_PRIMEIRA_EXECUCAO.md)
+- [PLANO_MELHORIAS_SISTEMA.md](PLANO_MELHORIAS_SISTEMA.md)
+
 ## 1. Visao geral
 
 O projeto `Vitrine Digital`, tambem apresentado na interface como `LocalMarket`, e uma plataforma web para divulgacao de lojas locais, produtos e ofertas, com area publica para clientes e area interna para comerciantes e administradores.
@@ -499,3 +504,9 @@ Configuracao atual de banco no codigo:
 O projeto ja ultrapassou o escopo de um frontend simples e hoje representa um marketplace local em formato MVP full-stack. Ele tem boa cobertura funcional para demonstracao, incluindo autenticacao, catalogo, carrinho, pedidos, cupons e painel administrativo.
 
 Ao mesmo tempo, o proximo salto de maturidade passa por seguranca, modularizacao do frontend, fortalecimento da autorizacao no backend e atualizacao da documentacao oficial do repositorio.
+
+## Documento complementar
+
+Para uma visao objetiva do que melhorar primeiro em produto, usabilidade, atratividade visual e base tecnica, consulte:
+
+- [PLANO_MELHORIAS_SISTEMA.md](PLANO_MELHORIAS_SISTEMA.md)
