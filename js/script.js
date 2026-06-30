@@ -550,6 +550,130 @@ function setupUserInfo() {
     document.querySelectorAll("[data-user-role]").forEach(element => {
         element.textContent = session ? session.role : "visitante";
     });
+
+    // Injeta menu do cliente logado em todas as páginas públicas
+    if (session && session.role === "cliente") {
+        injectClientMenu(session);
+    }
+}
+
+function injectClientMenu(session) {
+    // ===== DESKTOP: substitui o botão "Entrar" pelo dropdown do cliente =====
+    const loginLinks = document.querySelectorAll("a[href='login.html']");
+    loginLinks.forEach(link => {
+        // Só atua em links que claramente são de "Entrar" (não links genéricos)
+        const isAuthBtn = (
+            link.textContent.trim().toLowerCase().includes("entrar") ||
+            link.querySelector("span.material-symbols-outlined")?.textContent?.trim() === "person" ||
+            link.querySelector("span.material-symbols-outlined")?.textContent?.trim() === "account_circle"
+        );
+        if (!isAuthBtn) return;
+
+        // Evita duplicação
+        if (link.parentElement?.querySelector(".client-menu-wrapper")) return;
+
+        const initials = session.name
+            ? session.name.trim().split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
+            : "?";
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "client-menu-wrapper";
+        wrapper.innerHTML = `
+            <button class="client-menu-trigger" id="clientMenuTrigger" type="button" aria-haspopup="true" aria-expanded="false">
+                <span class="client-menu-avatar">${escapeHTML(initials)}</span>
+                <span class="client-menu-name">${escapeHTML(session.name || "Cliente")}</span>
+                <span class="material-symbols-outlined client-menu-chevron">expand_more</span>
+            </button>
+            <div class="client-dropdown" role="menu" id="clientDropdown">
+                <div class="client-dropdown-header">
+                    <span>Logado como</span>
+                    <strong>${escapeHTML(session.name || "Cliente")}</strong>
+                </div>
+                <a href="pedidos.html" class="client-dropdown-item" role="menuitem" id="clientMenuPedidos">
+                    <span class="material-symbols-outlined">receipt_long</span>
+                    Meus Pedidos
+                </a>
+                <div class="client-dropdown-divider"></div>
+                <button class="client-dropdown-item is-danger" role="menuitem" id="clientMenuLogout" type="button" data-logout>
+                    <span class="material-symbols-outlined">logout</span>
+                    Sair
+                </button>
+            </div>
+        `;
+
+        link.replaceWith(wrapper);
+
+        // Toggle dropdown ao clicar no trigger
+        const trigger = wrapper.querySelector(".client-menu-trigger");
+        const dropdown = wrapper.querySelector(".client-dropdown");
+
+        trigger.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = wrapper.classList.toggle("is-open");
+            trigger.setAttribute("aria-expanded", String(isOpen));
+        });
+
+        // Fechar ao clicar fora
+        document.addEventListener("click", (e) => {
+            if (!wrapper.contains(e.target)) {
+                wrapper.classList.remove("is-open");
+                trigger.setAttribute("aria-expanded", "false");
+            }
+        }, { capture: true });
+
+        // Fechar ao pressionar Escape
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                wrapper.classList.remove("is-open");
+                trigger.setAttribute("aria-expanded", "false");
+            }
+        });
+
+        // Ação de logout
+        const logoutBtn = wrapper.querySelector("[data-logout]");
+        if (logoutBtn) {
+            logoutBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                clearSession();
+                window.location.href = "index.html";
+            });
+        }
+    });
+
+    // ===== MOBILE: injeta seção do cliente no menu lateral =====
+    const mobileMenuOverlay = document.getElementById("mobileMenuOverlay");
+    if (!mobileMenuOverlay) return;
+
+    const mobileNav = mobileMenuOverlay.querySelector("nav");
+    if (!mobileNav) return;
+
+    // Evita duplicação
+    if (mobileNav.querySelector(".mobile-client-section")) return;
+
+    const mobileSection = document.createElement("div");
+    mobileSection.className = "mobile-client-section";
+    mobileSection.innerHTML = `
+        <span class="mobile-client-label">Minha conta</span>
+        <a href="pedidos.html" class="mobile-client-link" id="mobileMenuPedidos">
+            <span class="material-symbols-outlined">receipt_long</span>
+            Meus Pedidos
+        </a>
+        <button class="mobile-client-link is-danger" type="button" data-logout-mobile id="mobileMenuLogout">
+            <span class="material-symbols-outlined">logout</span>
+            Sair
+        </button>
+    `;
+
+    mobileNav.appendChild(mobileSection);
+
+    const mobileLogoutBtn = mobileSection.querySelector("[data-logout-mobile]");
+    if (mobileLogoutBtn) {
+        mobileLogoutBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            clearSession();
+            window.location.href = "index.html";
+        });
+    }
 }
 
 // ===============================
@@ -893,39 +1017,40 @@ async function setupPedidosPage() {
         return;
     }
 
-    const table = document.getElementById("pedidoTable");
-    const details = document.getElementById("orderDetails");
-    const title = document.getElementById("pedidosTitle");
-    const actionLink = document.getElementById("pedidosAction");
     const canManageOrders = session.role === "admin" || session.role === "comerciante";
 
-    if (title) {
-        title.textContent = canManageOrders ? "Acompanhamento de pedidos" : "Meus pedidos";
+    // ── Ativa o layout correto ──────────────────────────────────────────────
+    const layoutCliente = document.getElementById("layoutCliente");
+    const layoutPainel  = document.getElementById("layoutPainel");
+
+    if (layoutCliente && layoutPainel) {
+        if (canManageOrders) {
+            layoutPainel.style.display  = "flex";
+            layoutCliente.style.display = "none";
+
+            // Esconde o link "Administração" para comerciantes (não admin)
+            const adminNavLink = document.getElementById("adminNavLink");
+            if (adminNavLink && session.role !== "admin") {
+                adminNavLink.style.display = "none";
+            }
+        } else {
+            layoutCliente.style.display = "flex";
+            layoutPainel.style.display  = "none";
+        }
     }
 
-    if (actionLink) {
-        actionLink.href = canManageOrders ? "dashboard.html" : "carrinho.html";
-        actionLink.innerHTML = canManageOrders
-            ? `
-                <span class="material-symbols-outlined">space_dashboard</span>
-                Voltar ao painel
-            `
-            : `
-                <span class="material-symbols-outlined">shopping_cart</span>
-                Ver carrinho
-            `;
-    }
+    // ── Seleciona elementos do layout ativo ────────────────────────────────
+    const activeLayout = canManageOrders ? layoutPainel : layoutCliente;
+    const table   = activeLayout ? activeLayout.querySelector("#pedidoTable")  : document.getElementById("pedidoTable");
+    const details = activeLayout ? activeLayout.querySelector("#orderDetails") : document.getElementById("orderDetails");
 
     if (details) {
         details.classList.add("hidden");
+        details.style.display = "none";
     }
 
-    const url = canManageOrders
-        ? `${API_BASE}/pedidos?email=${encodeURIComponent(session.email)}`
-        : `${API_BASE}/pedidos?email=${encodeURIComponent(session.email)}`;
-
     try {
-        const response = await fetch(url);
+        const response = await fetch(`${API_BASE}/pedidos?email=${encodeURIComponent(session.email)}`);
         if (!response.ok) throw new Error("Erro ao buscar pedidos.");
         const pedidos = await response.json();
 
@@ -945,30 +1070,18 @@ async function setupPedidosPage() {
             return;
         }
 
-        const headerRow = document.querySelector("thead tr");
-        if (headerRow) {
-            headerRow.innerHTML = `
-                <th class="px-4 py-3">Pedido</th>
-                <th class="px-4 py-3">Cliente</th>
-                <th class="px-4 py-3">Status</th>
-                <th class="px-4 py-3">Total</th>
-                <th class="px-4 py-3">Data</th>
-                <th class="px-4 py-3 text-right">Acoes</th>
-            `;
-        }
-
         table.innerHTML = pedidos.map(pedido => `
             <tr>
-                <td>${pedido.id}</td>
-                <td>${escapeHTML(pedido.usuario_email)}</td>
-                <td>
+                <td class="px-4 py-3">${pedido.id}</td>
+                <td class="px-4 py-3">${escapeHTML(pedido.usuario_email)}</td>
+                <td class="px-4 py-3">
                     <span class="badge-status ${getOrderStatusClass(pedido.status)}">
                         ${escapeHTML(pedido.status)}
                     </span>
                 </td>
-                <td>${formatCurrency(pedido.total)}</td>
-                <td>${formatDate(pedido.criado_em)}</td>
-                <td class="text-end">
+                <td class="px-4 py-3">${formatCurrency(pedido.total)}</td>
+                <td class="px-4 py-3">${formatDate(pedido.criado_em)}</td>
+                <td class="px-4 py-3 text-end">
                     <div class="order-actions">
                         <button class="btn btn-sm btn-outline-secondary" data-view-order="${pedido.id}">Ver detalhes</button>
                         ${canManageOrders ? `
@@ -982,15 +1095,15 @@ async function setupPedidosPage() {
             </tr>
         `).join("");
 
-        document.querySelectorAll("[data-view-order]").forEach(button => {
+        table.querySelectorAll("[data-view-order]").forEach(button => {
             button.addEventListener("click", async () => {
                 const pedidoId = button.dataset.viewOrder;
                 if (!pedidoId) return;
 
                 try {
-                    const response = await fetch(`${API_BASE}/pedidos/${pedidoId}`);
-                    if (!response.ok) throw new Error("Erro ao buscar detalhes do pedido.");
-                    const pedido = await response.json();
+                    const res = await fetch(`${API_BASE}/pedidos/${pedidoId}`);
+                    if (!res.ok) throw new Error("Erro ao buscar detalhes do pedido.");
+                    const pedido = await res.json();
 
                     if (!details) return;
                     details.innerHTML = `
@@ -1021,6 +1134,7 @@ async function setupPedidosPage() {
                         </div>
                     `;
                     details.classList.remove("hidden");
+                    details.style.display = "";
                     details.scrollIntoView({ behavior: "smooth", block: "start" });
                 } catch (e) {
                     console.error(e);
@@ -1029,10 +1143,10 @@ async function setupPedidosPage() {
             });
         });
 
-        document.querySelectorAll("[data-save-order-status]").forEach(button => {
+        table.querySelectorAll("[data-save-order-status]").forEach(button => {
             button.addEventListener("click", async () => {
                 const orderId = button.dataset.saveOrderStatus;
-                const select = document.querySelector(`[data-order-status="${orderId}"]`);
+                const select = table.querySelector(`[data-order-status="${orderId}"]`);
                 if (!orderId || !select) return;
 
                 const updated = await updateOrderStatus(orderId, select.value);
@@ -1041,6 +1155,7 @@ async function setupPedidosPage() {
                 }
             });
         });
+
     } catch (e) {
         console.error(e);
         if (table) {
@@ -1057,7 +1172,6 @@ async function setupPedidosPage() {
 // ===============================
 // Catálogo - catalogo.html
 // ===============================
-
 async function setupCatalogoPage() {
     await renderCatalogo();
 }

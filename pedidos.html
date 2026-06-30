@@ -4,30 +4,103 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LocalMarket | Pedidos</title>
+
+    <!-- Bootstrap (painel do lojista) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Tailwind (layout público do cliente) -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#006948",
+                        "primary-container": "#00855d",
+                        background: "#f5fbf5",
+                        surface: "#ffffff",
+                        "surface-container": "#e9efe9",
+                        "on-surface": "#171d19",
+                        "on-background": "#171d19",
+                        "on-surface-variant": "#3d4a42",
+                        outline: "#6d7a72",
+                        "outline-variant": "#bccac0",
+                        error: "#ba1a1a"
+                    },
+                    fontFamily: { manrope: ["Manrope", "sans-serif"] }
+                }
+            }
+        };
+    </script>
+
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="css/styles.css" />
+
     <style>
         body { font-family: 'Manrope', sans-serif; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+        /* Oculta ambos os layouts até o JS decidir qual mostrar */
+        #layoutCliente,
+        #layoutPainel { display: none; }
     </style>
 </head>
-<body data-page="pedidos" class="bg-background text-on-background min-h-screen flex flex-col">
+<body data-page="pedidos">
+
+<!-- ============================================================
+     LAYOUT DO CLIENTE — visível apenas para role = "cliente"
+     ============================================================ -->
+<div id="layoutCliente" class="bg-background text-on-background min-h-screen flex flex-col">
+
     <header class="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-200">
         <div class="max-w-[1200px] mx-auto flex items-center justify-between px-6 md:px-8 py-3 gap-4">
             <a href="index.html" class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-emerald-600 text-3xl">storefront</span>
                 <span class="text-xl font-extrabold tracking-tight text-emerald-600">LocalMarket</span>
             </a>
+
             <nav class="hidden md:flex items-center gap-6">
                 <a href="index.html" class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm">Explorar</a>
                 <a href="loja.html" class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm">Lojas</a>
                 <a href="carrinho.html" class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm">Meu Carrinho</a>
-                <a href="login.html" class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-sm">Entrar</a>
             </nav>
+
+            <!-- Menu Mobile -->
+            <button class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-full" id="mobileMenuBtn">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+
+            <div class="flex items-center gap-3">
+                <a href="login.html"
+                    class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-100 transition">
+                    <span class="material-symbols-outlined">person</span>
+                    Entrar
+                </a>
+                <a href="carrinho.html"
+                    class="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-all active:scale-95 relative">
+                    <span class="material-symbols-outlined">shopping_cart</span>
+                    <span data-cart-badge class="absolute top-1 right-1 w-2 h-2 bg-emerald-600 rounded-full hidden"></span>
+                </a>
+            </div>
         </div>
     </header>
+
+    <!-- Menu Mobile Overlay -->
+    <div class="fixed inset-0 bg-black/50 z-50 hidden" id="mobileMenuOverlay" style="display: none;">
+        <div class="fixed top-0 right-0 w-64 h-full bg-white shadow-lg z-50 p-6">
+            <button class="absolute top-4 right-4 p-2 text-slate-600 hover:bg-slate-100 rounded-full" id="closeMobileMenu">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            <nav class="mt-12 flex flex-col gap-6">
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-lg" href="index.html">Explorar</a>
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-lg" href="loja.html">Lojas</a>
+                <a class="text-slate-600 hover:text-emerald-500 transition-colors font-semibold text-lg" href="carrinho.html">Meu Carrinho</a>
+            </nav>
+        </div>
+    </div>
+
     <main class="mt-20 flex-grow max-w-[1200px] mx-auto w-full px-6 md:px-8 py-8">
         <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
             <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
@@ -35,7 +108,8 @@
                     <h1 id="pedidosTitle" class="text-3xl font-extrabold text-slate-900">Meus pedidos</h1>
                     <p class="text-slate-500 mt-2">Acompanhe o status do pedido e veja quando ele estiver em separacao, enviado ou entregue.</p>
                 </div>
-                <a href="carrinho.html" id="pedidosAction" class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition">
+                <a href="carrinho.html" id="pedidosAction"
+                    class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition">
                     <span class="material-symbols-outlined">shopping_cart</span>
                     Ver carrinho
                 </a>
@@ -58,6 +132,7 @@
             <div id="orderDetails" class="mt-8 bg-slate-50 border border-slate-200 rounded-3xl p-6 hidden"></div>
         </div>
     </main>
+
     <footer class="bg-white border-t border-slate-100 py-6">
         <div class="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <p class="text-xs text-slate-500">© 2026 LocalMarket. Todos os direitos reservados.</p>
@@ -68,6 +143,113 @@
             </div>
         </div>
     </footer>
-    <script src="js/script.js"></script>
+</div>
+
+<!-- ============================================================
+     LAYOUT DO PAINEL — visível apenas para role = "comerciante" ou "admin"
+     ============================================================ -->
+<div id="layoutPainel" class="app-shell">
+    <aside class="sidebar">
+        <a href="dashboard.html" class="brand">
+            <span class="brand-icon-small material-symbols-outlined">dashboard</span>
+            <div>
+                <strong>Hub Gestão</strong>
+                <small>Sistema neutro</small>
+            </div>
+        </a>
+
+        <nav class="nav-list">
+            <a href="index.html" class="nav-link">
+                <span class="material-symbols-outlined">home</span>
+                Página Principal
+            </a>
+            <a href="dashboard.html" class="nav-link" data-nav="dashboard">
+                <span class="material-symbols-outlined">space_dashboard</span>
+                Painel
+            </a>
+            <a href="cadastro.html" class="nav-link" data-nav="cadastro">
+                <span class="material-symbols-outlined">add_box</span>
+                Cadastro
+            </a>
+            <a href="catalogo.html" class="nav-link" data-nav="catalogo">
+                <span class="material-symbols-outlined">view_module</span>
+                Catálogo
+            </a>
+            <a href="pedidos.html" class="nav-link active" data-nav="pedidos">
+                <span class="material-symbols-outlined">receipt_long</span>
+                Pedidos
+            </a>
+            <a href="admin.html" class="nav-link" data-nav="admin" id="adminNavLink">
+                <span class="material-symbols-outlined">admin_panel_settings</span>
+                Administração
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button class="btn btn-outline-danger w-100" data-logout>
+                <span class="material-symbols-outlined">logout</span>
+                Sair
+            </button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <h1 id="pedidosTitlePainel">Acompanhamento de Pedidos</h1>
+                <p>Gerencie os pedidos dos clientes, atualize status e acompanhe as vendas.</p>
+            </div>
+            <div class="topbar-actions">
+                <a href="dashboard.html" class="btn btn-outline-secondary d-flex align-items-center gap-1">
+                    <span class="material-symbols-outlined">space_dashboard</span>
+                    Voltar ao painel
+                </a>
+            </div>
+        </header>
+
+        <section class="content-card">
+            <div class="content-card-header">
+                <div>
+                    <h2>Lista de pedidos</h2>
+                    <p>Visualize, filtre e atualize o status dos pedidos recebidos.</p>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Cliente</th>
+                            <th>Status</th>
+                            <th>Total</th>
+                            <th>Data</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pedidoTable"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <div id="orderDetails" class="mt-4 content-card p-4" style="display:none;"></div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/script.js"></script>
+
+<!--Acessibilidade-->
+<div vw class="enabled">
+    <div vw-access-button class="active"></div>
+    <div vw-plugin-wrapper>
+        <div vw-plugin-top-wrapper></div>
+    </div>
+</div>
+<script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+<script>
+    new window.VLibras.Widget('https://vlibras.gov.br/app');
+</script>
+
 </body>
 </html>
