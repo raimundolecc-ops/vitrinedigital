@@ -509,6 +509,56 @@ img {
     margin-top: 14px;
 }
 
+.order-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.order-status-select {
+    min-width: 170px;
+}
+
+.order-timeline {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.order-step {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    text-align: center;
+    padding: 12px 10px;
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--muted);
+}
+
+.order-step.is-complete {
+    border-style: solid;
+    border-color: rgba(15, 118, 110, 0.24);
+    background: rgba(15, 118, 110, 0.08);
+    color: var(--primary-dark);
+}
+
+.order-step-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: currentColor;
+}
+
+.order-step-label {
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
 .cart-pill {
     background: var(--surface);
     border: 1px solid var(--border);

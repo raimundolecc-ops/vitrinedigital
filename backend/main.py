@@ -58,6 +58,10 @@ class OrderCreate(BaseModel):
     total: float
     cupom_codigo: Optional[str] = None
 
+class OrderStatusUpdate(BaseModel):
+    atualizado_por: str
+    status: str
+
 class OrderItemResponse(BaseModel):
     produto_id: str
     quantidade: int
@@ -74,6 +78,42 @@ class OrderResponse(BaseModel):
 
 class OrderDetailResponse(OrderResponse):
     itens: List[OrderItemResponse] = []
+
+ORDER_STATUS_FLOW = [
+    "Pendente",
+    "Em separacao",
+    "Enviado",
+    "Entregue"
+]
+
+def ensure_valid_order_status(value: str) -> str:
+    normalized = value.strip()
+    if normalized not in ORDER_STATUS_FLOW:
+        raise HTTPException(status_code=400, detail="Status de pedido invalido.")
+    return normalized
+
+def can_manage_order(conn, pedido_id: int, user_email: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute("SELECT funcao, slug_loja FROM usuarios WHERE email = %s", (user_email,))
+        usuario = cur.fetchone()
+        if not usuario:
+            return False
+
+        if usuario["funcao"] == "admin":
+            return True
+
+        if usuario["funcao"] != "comerciante" or not usuario["slug_loja"]:
+            return False
+
+        cur.execute(
+            """SELECT 1
+               FROM pedido_items pi
+               JOIN produtos p ON p.id = pi.produto_id
+               WHERE pi.pedido_id = %s AND p.slug_dono = %s
+               LIMIT 1""",
+            (pedido_id, usuario["slug_loja"])
+        )
+        return cur.fetchone() is not None
 
 class LojaBase(BaseModel):
     id: str
@@ -452,10 +492,30 @@ def create_pedido(req: OrderCreate, conn = Depends(get_db_connection)):
 def get_pedidos(email: Optional[str] = None, conn = Depends(get_db_connection)):
     with conn.cursor() as cur:
         if email:
-            cur.execute(
-                "SELECT id, usuario_email, total, status, criado_em FROM pedidos WHERE usuario_email = %s ORDER BY criado_em DESC",
-                (email,)
-            )
+            cur.execute("SELECT email, funcao, slug_loja FROM usuarios WHERE email = %s", (email,))
+            usuario = cur.fetchone()
+            if not usuario:
+                raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+            if usuario["funcao"] == "cliente":
+                cur.execute(
+                    "SELECT id, usuario_email, total, status, criado_em FROM pedidos WHERE usuario_email = %s ORDER BY criado_em DESC",
+                    (email,)
+                )
+            elif usuario["funcao"] == "comerciante":
+                cur.execute(
+                    """SELECT DISTINCT p.id, p.usuario_email, p.total, p.status, p.criado_em
+                       FROM pedidos p
+                       JOIN pedido_items pi ON pi.pedido_id = p.id
+                       JOIN produtos pr ON pr.id = pi.produto_id
+                       WHERE pr.slug_dono = %s
+                       ORDER BY p.criado_em DESC""",
+                    (usuario["slug_loja"],)
+                )
+            else:
+                cur.execute(
+                    "SELECT id, usuario_email, total, status, criado_em FROM pedidos ORDER BY criado_em DESC"
+                )
         else:
             cur.execute(
                 "SELECT id, usuario_email, total, status, criado_em FROM pedidos ORDER BY criado_em DESC"
@@ -465,6 +525,30 @@ def get_pedidos(email: Optional[str] = None, conn = Depends(get_db_connection)):
             if order["criado_em"]:
                 order["criado_em"] = order["criado_em"].isoformat()
         return orders
+
+@app.put("/api/pedidos/{pedido_id}/status", response_model=OrderResponse)
+def update_pedido_status(pedido_id: int, req: OrderStatusUpdate, conn = Depends(get_db_connection)):
+    novo_status = ensure_valid_order_status(req.status)
+
+    if not can_manage_order(conn, pedido_id, req.atualizado_por):
+        raise HTTPException(status_code=403, detail="Usuário não autorizado a atualizar este pedido.")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """UPDATE pedidos
+               SET status = %s
+               WHERE id = %s
+               RETURNING id, usuario_email, status, total, cupom_codigo, desconto_total, criado_em""",
+            (novo_status, pedido_id)
+        )
+        pedido = cur.fetchone()
+        if not pedido:
+            raise HTTPException(status_code=404, detail="Pedido não encontrado.")
+        conn.commit()
+
+        if pedido["criado_em"]:
+            pedido["criado_em"] = pedido["criado_em"].isoformat()
+        return pedido
 
 @app.get("/api/pedidos/{pedido_id}", response_model=OrderDetailResponse)
 def get_pedido(pedido_id: int, conn = Depends(get_db_connection)):

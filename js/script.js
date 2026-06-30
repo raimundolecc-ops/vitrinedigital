@@ -343,6 +343,71 @@ function createEmptyTableState({ colspan, icon, title, description, actionLabel 
     `;
 }
 
+const ORDER_STATUS_FLOW = ["Pendente", "Em separacao", "Enviado", "Entregue"];
+
+function getOrderStatusClass(status) {
+    const value = String(status || "").toLowerCase();
+
+    if (value.includes("entreg")) return "status-ativo";
+    if (value.includes("envi")) return "status-baixo";
+    if (value.includes("separ")) return "status-pendente";
+    if (value.includes("pend")) return "status-rascunho";
+
+    return "status-indisponivel";
+}
+
+function renderOrderStatusTimeline(status) {
+    const currentIndex = Math.max(0, ORDER_STATUS_FLOW.indexOf(status));
+
+    return `
+        <div class="order-timeline">
+            ${ORDER_STATUS_FLOW.map((step, index) => `
+                <div class="order-step ${index <= currentIndex ? "is-complete" : ""}">
+                    <span class="order-step-dot"></span>
+                    <span class="order-step-label">${escapeHTML(step)}</span>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function renderOrderStatusOptions(selectedStatus) {
+    return ORDER_STATUS_FLOW.map(status => `
+        <option value="${escapeHTML(status)}" ${status === selectedStatus ? "selected" : ""}>
+            ${escapeHTML(status)}
+        </option>
+    `).join("");
+}
+
+async function updateOrderStatus(orderId, newStatus) {
+    const session = getSession();
+    if (!session) return false;
+
+    try {
+        const response = await fetch(`${API_BASE}/pedidos/${orderId}/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                atualizado_por: session.email,
+                status: newStatus
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            showMessage(err.detail || "Nao foi possivel atualizar o status do pedido.", "error");
+            return false;
+        }
+
+        showMessage("Status do pedido atualizado com sucesso.", "success");
+        return true;
+    } catch (e) {
+        console.error(e);
+        showMessage("Erro ao atualizar o status do pedido.", "error");
+        return false;
+    }
+}
+
 // ===============================
 // Proteção de páginas
 // ===============================
@@ -831,16 +896,33 @@ async function setupPedidosPage() {
     const table = document.getElementById("pedidoTable");
     const details = document.getElementById("orderDetails");
     const title = document.getElementById("pedidosTitle");
+    const actionLink = document.getElementById("pedidosAction");
+    const canManageOrders = session.role === "admin" || session.role === "comerciante";
 
     if (title) {
-        title.textContent = session.role === "admin" ? "Pedidos do sistema" : "Meus pedidos";
+        title.textContent = canManageOrders ? "Acompanhamento de pedidos" : "Meus pedidos";
+    }
+
+    if (actionLink) {
+        actionLink.href = canManageOrders ? "dashboard.html" : "carrinho.html";
+        actionLink.innerHTML = canManageOrders
+            ? `
+                <span class="material-symbols-outlined">space_dashboard</span>
+                Voltar ao painel
+            `
+            : `
+                <span class="material-symbols-outlined">shopping_cart</span>
+                Ver carrinho
+            `;
     }
 
     if (details) {
         details.classList.add("hidden");
     }
 
-    const url = session.role === "admin" ? `${API_BASE}/pedidos` : `${API_BASE}/pedidos?email=${encodeURIComponent(session.email)}`;
+    const url = canManageOrders
+        ? `${API_BASE}/pedidos?email=${encodeURIComponent(session.email)}`
+        : `${API_BASE}/pedidos?email=${encodeURIComponent(session.email)}`;
 
     try {
         const response = await fetch(url);
@@ -854,23 +936,49 @@ async function setupPedidosPage() {
                 colspan: 6,
                 icon: "receipt_long",
                 title: "Nenhum pedido encontrado",
-                description: session.role === "admin"
+                description: canManageOrders
                     ? "Os pedidos aparecerao aqui assim que os clientes concluirem compras."
                     : "Quando voce finalizar sua primeira compra, ela aparecera nesta lista.",
-                actionLabel: session.role === "admin" ? "Ver catalogo" : "Explorar produtos",
-                actionHref: session.role === "admin" ? "catalogo.html" : "loja.html"
+                actionLabel: canManageOrders ? "Ver catalogo" : "Explorar produtos",
+                actionHref: canManageOrders ? "catalogo.html" : "loja.html"
             });
             return;
+        }
+
+        const headerRow = document.querySelector("thead tr");
+        if (headerRow) {
+            headerRow.innerHTML = `
+                <th class="px-4 py-3">Pedido</th>
+                <th class="px-4 py-3">Cliente</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Total</th>
+                <th class="px-4 py-3">Data</th>
+                <th class="px-4 py-3 text-right">Acoes</th>
+            `;
         }
 
         table.innerHTML = pedidos.map(pedido => `
             <tr>
                 <td>${pedido.id}</td>
-                <td>${pedido.usuario_email}</td>
-                <td>${pedido.status}</td>
+                <td>${escapeHTML(pedido.usuario_email)}</td>
+                <td>
+                    <span class="badge-status ${getOrderStatusClass(pedido.status)}">
+                        ${escapeHTML(pedido.status)}
+                    </span>
+                </td>
                 <td>${formatCurrency(pedido.total)}</td>
                 <td>${formatDate(pedido.criado_em)}</td>
-                <td class="text-end"><button class="btn btn-sm btn-outline-secondary" data-view-order="${pedido.id}">Ver detalhes</button></td>
+                <td class="text-end">
+                    <div class="order-actions">
+                        <button class="btn btn-sm btn-outline-secondary" data-view-order="${pedido.id}">Ver detalhes</button>
+                        ${canManageOrders ? `
+                            <select class="form-select form-select-sm order-status-select" data-order-status="${pedido.id}">
+                                ${renderOrderStatusOptions(pedido.status)}
+                            </select>
+                            <button class="btn btn-sm btn-primary" data-save-order-status="${pedido.id}">Atualizar</button>
+                        ` : ""}
+                    </div>
+                </td>
             </tr>
         `).join("");
 
@@ -888,9 +996,18 @@ async function setupPedidosPage() {
                     details.innerHTML = `
                         <h3 class="mb-3">Pedido #${pedido.id}</h3>
                         <p><strong>Cliente:</strong> ${escapeHTML(pedido.usuario_email)}</p>
-                        <p><strong>Status:</strong> ${escapeHTML(pedido.status)}</p>
+                        <p>
+                            <strong>Status:</strong>
+                            <span class="badge-status ${getOrderStatusClass(pedido.status)}">
+                                ${escapeHTML(pedido.status)}
+                            </span>
+                        </p>
                         <p><strong>Total:</strong> ${formatCurrency(pedido.total)}</p>
                         <p><strong>Data:</strong> ${formatDate(pedido.criado_em)}</p>
+                        <div class="mt-4">
+                            <h4 class="mb-2">Acompanhamento</h4>
+                            ${renderOrderStatusTimeline(pedido.status)}
+                        </div>
                         <div class="mt-4">
                             <h4 class="mb-2">Itens</h4>
                             <ul class="list-group">
@@ -908,6 +1025,19 @@ async function setupPedidosPage() {
                 } catch (e) {
                     console.error(e);
                     showMessage("Erro ao exibir os detalhes do pedido.", "error");
+                }
+            });
+        });
+
+        document.querySelectorAll("[data-save-order-status]").forEach(button => {
+            button.addEventListener("click", async () => {
+                const orderId = button.dataset.saveOrderStatus;
+                const select = document.querySelector(`[data-order-status="${orderId}"]`);
+                if (!orderId || !select) return;
+
+                const updated = await updateOrderStatus(orderId, select.value);
+                if (updated) {
+                    await setupPedidosPage();
                 }
             });
         });
@@ -932,15 +1062,51 @@ async function setupCatalogoPage() {
     await renderCatalogo();
 }
 
+function isManagerSession(session = getSession()) {
+    return Boolean(session && (session.role === "admin" || session.role === "comerciante"));
+}
+
+function updateCatalogModeUI(isManagementView) {
+    const description = document.getElementById("catalogDescription") || document.querySelector(".topbar p");
+    const badge = document.getElementById("catalogModeBadge") || document.querySelector(".cart-pill");
+
+    if (description) {
+        description.textContent = isManagementView
+            ? "Gerencie os produtos da sua loja, revise status e edite os cadastros."
+            : "VisualizaÃ§Ã£o pÃºblica dos registros ativos.";
+    }
+
+    if (badge) {
+        if (isManagementView) {
+            badge.innerHTML = `
+                <span class="material-symbols-outlined">edit_square</span>
+                Modo gestÃ£o
+            `;
+        } else {
+            badge.innerHTML = `
+                <span class="material-symbols-outlined">shopping_cart</span>
+                Lista: <strong data-cart-count>0</strong>
+            `;
+        }
+    }
+}
+
 async function renderCatalogo() {
     const grid = document.getElementById("catalogGrid");
     const searchInput = document.getElementById("catalogSearch");
     const categorySelect = document.getElementById("catalogCategory");
     const sortSelect = document.getElementById("catalogSort");
+    const session = getSession();
+    const managementView = isManagerSession(session);
 
     if (!grid) return;
 
-    const itemsList = await getItems();
+    updateCatalogModeUI(managementView);
+    await updateCartCount();
+
+    const itemsList = managementView
+        ? await getVisibleItemsForCurrentUser()
+        : await getItems();
 
     function loadCategories() {
         if (!categorySelect) return;
@@ -956,12 +1122,17 @@ async function renderCatalogo() {
     }
 
     async function render() {
-        let items = await getItems();
-        items = items.filter(item => {
-            return item.status === "Ativo" ||
-                item.status === "Baixo estoque" ||
-                item.status === "Baixo volume";
-        });
+        let items = managementView
+            ? await getVisibleItemsForCurrentUser()
+            : await getItems();
+
+        if (!managementView) {
+            items = items.filter(item => {
+                return item.status === "Ativo" ||
+                    item.status === "Baixo estoque" ||
+                    item.status === "Baixo volume";
+            });
+        }
 
         const term = searchInput ? searchInput.value.toLowerCase().trim() : "";
         const selectedCategory = categorySelect ? categorySelect.value : "Todos";
@@ -994,7 +1165,7 @@ async function renderCatalogo() {
             items.sort((a, b) => new Date(b.data_criacao || b.createdAt) - new Date(a.data_criacao || a.createdAt));
         }
 
-        const favorites = await getFavorites();
+        const favorites = managementView ? [] : await getFavorites();
 
         grid.innerHTML = items.map(item => {
             const isFavorite = favorites.includes(item.id);
@@ -1033,16 +1204,42 @@ async function renderCatalogo() {
             `;
         }).join("");
 
+        if (managementView) {
+            const cards = grid.querySelectorAll(".catalog-card");
+
+            cards.forEach((card, index) => {
+                const item = items[index];
+                const footer = card.querySelector(".catalog-card-footer");
+                if (!item || !footer) return;
+
+                const statusBadge = document.createElement("span");
+                statusBadge.className = `badge-status ${getStatusClass(item.status)}`;
+                statusBadge.textContent = item.status;
+                footer.before(statusBadge);
+
+                footer.innerHTML = `
+                    <a href="cadastro.html?id=${encodeURIComponent(item.id)}" class="btn btn-primary flex-fill">
+                        <span class="material-symbols-outlined">edit</span>
+                        Editar produto
+                    </a>
+                `;
+            });
+        }
+
         if (items.length === 0) {
             grid.innerHTML = `
                 <div class="empty-state">
                     <h3>Nenhum item encontrado</h3>
-                    <p>Ajuste os filtros ou explore outras categorias para encontrar mais produtos.</p>
+                    <p>${managementView
+                        ? "Nenhum produto da sua loja corresponde aos filtros aplicados."
+                        : "Ajuste os filtros ou explore outras categorias para encontrar mais produtos."}</p>
                 </div>
             `;
         }
 
-        setupCatalogActions();
+        if (!managementView) {
+            setupCatalogActions();
+        }
     }
 
     loadCategories();
@@ -2048,6 +2245,10 @@ async function imprimirCupom() {
     if (couponInput) couponInput.value = "";
     if (couponStatus) couponStatus.textContent = "Nenhum cupom aplicado.";
     await renderCarrinho();
+    showMessage("Pedido criado com sucesso. Voce pode acompanhar o andamento na pagina de pedidos.", "success");
+    window.setTimeout(() => {
+        window.location.href = "pedidos.html";
+    }, 900);
 }
 
 async function renderCarrinho() {
