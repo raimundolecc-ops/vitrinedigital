@@ -14,6 +14,9 @@ Aplicacao full-stack:
 - **Backend** REST em **FastAPI** (`backend/main.py`)
 - **Banco** de dados **PostgreSQL** (base chamada `vitrine`)
 
+> Para uma visao tecnica detalhada (tecnologias, atores, entidades, CRUD e seguranca
+> com trechos de codigo), veja **[RESUMO_SISTEMA.md](RESUMO_SISTEMA.md)**.
+
 ## Pre-requisitos
 
 Instale antes de comecar:
@@ -160,6 +163,23 @@ python backend\main.py
 > Ao ativar a seguranca, sessoes antigas (feitas antes desta versao) nao possuem token.
 > Basta sair e entrar novamente para receber um token valido.
 
+## Sessao e navegacao
+
+- **Login por papel:** na tela de login o usuario escolhe o tipo de acesso
+  (cliente, comerciante ou admin). Apos autenticar, e redirecionado para a area certa
+  (admin -> `admin.html`, lojista -> `dashboard.html`, cliente -> carrinho).
+- **Sessao persistente:** os dados da sessao e o token JWT ficam no `localStorage` do
+  navegador. O token e enviado automaticamente em todas as chamadas da API.
+- **Menu do usuario logado:** em qualquer pagina publica, o botao "Entrar" e substituido
+  por um menu que mostra **quem esta logado** e o seu papel. O menu se adapta:
+  - **Cliente:** "Meus Pedidos" e "Sair".
+  - **Lojista / Admin:** botao **"Painel"** (volta para `dashboard.html` / `admin.html`),
+    "Pedidos" e "Sair".
+  Assim o lojista/admin nunca "se perde" ao navegar pela area publica.
+- **Carrinho preservado no login:** se um visitante monta o carrinho sem estar logado e
+  depois faz login (ou se cadastra) para finalizar a compra, os itens do carrinho local
+  sao transferidos para a conta automaticamente, sem perder nada.
+
 ## Estrutura do projeto
 
 ```text
@@ -188,7 +208,9 @@ vitrinedigital/
 |-- termos.html            # termos de uso
 |-- dashboard.html         # painel do comerciante
 |-- cadastro.html          # cadastro/edicao de produto
-`-- admin.html             # painel do administrador
+|-- admin.html             # painel do administrador
+|-- README.md              # este guia
+`-- RESUMO_SISTEMA.md      # resumo tecnico (tecnologias, atores, CRUD, seguranca)
 ```
 
 ## Stack

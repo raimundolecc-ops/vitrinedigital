@@ -94,6 +94,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (page === "pedidos") {
         await setupPedidosPage();
     }
+
+    if (page === "ofertas") {
+        await setupOfertasPage();
+    }
 });
 
 // ===============================
@@ -265,13 +269,14 @@ function buildStoreAddressLabel(store) {
 }
 
 function formatStoreMapQuery(store) {
-    const parts = [
-        store?.nome,
-        store?.localizacao,
-        store?.cep,
-        "Brasil"
-    ].filter(Boolean);
-    return parts.join(", ");
+    // Prioriza o endereco completo + CEP para um pino exato no mapa.
+    // O CEP no Brasil aponta para a rua/quadra, deixando a localizacao bem precisa.
+    const address = [store?.localizacao, store?.cep].filter(Boolean).join(", ");
+    if (address) {
+        return `${address}, Brasil`;
+    }
+    // Sem endereco cadastrado: cai para o nome da loja como referencia.
+    return [store?.nome, "Brasil"].filter(Boolean).join(", ");
 }
 
 async function getCart() {
@@ -562,6 +567,7 @@ function protectPage() {
         "loja",
         "mapa",
         "mapas",
+        "ofertas",
         "privacidade",
         "termos",
         "contato"
@@ -993,16 +999,20 @@ async function setupMapaPage() {
                         <h4 class="font-extrabold text-slate-900">${escapeHTML(store.nome)}</h4>
                         <p class="text-sm text-emerald-700 font-semibold">${escapeHTML(store.categoria || "Sem categoria")}</p>
                     </div>
-                    <span class="badge-status ${getStatusClass(store.status)}">${escapeHTML(store.status)}</span>
                 </div>
-                <p class="text-sm text-slate-600 mt-3">${escapeHTML(buildStoreAddressLabel(store))}</p>
+                <p class="text-sm text-slate-600 mt-3 flex items-start gap-1">
+                    <span class="material-symbols-outlined text-base text-emerald-600">location_on</span>
+                    <span>${escapeHTML(buildStoreAddressLabel(store))}</span>
+                </p>
                 <p class="text-xs text-slate-500 mt-1">CEP: ${escapeHTML(store.cep || "Nao informado")}</p>
-                <p class="text-xs text-slate-500 mt-1">Contato: ${escapeHTML(store.email_proprietario || "-")}</p>
-                <div class="mt-4 flex gap-2">
-                    <button class="btn btn-primary btn-sm" type="button" data-map-store="${escapeHTML(store.id)}">
+                <div class="mt-4 grid grid-cols-2 gap-2">
+                    <button type="button" data-map-store="${escapeHTML(store.id)}"
+                        class="inline-flex items-center justify-center gap-1 w-full py-2 px-3 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all">
+                        <span class="material-symbols-outlined text-base">location_on</span>
                         Ver no mapa
                     </button>
-                    <a href="loja.html?loja=${encodeURIComponent(store.slug_loja)}" class="btn btn-outline-secondary btn-sm">
+                    <a href="loja.html?loja=${encodeURIComponent(store.slug_loja)}"
+                        class="inline-flex items-center justify-center gap-1 w-full py-2 px-3 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all">
                         Visitar loja
                     </a>
                 </div>
@@ -1199,6 +1209,119 @@ async function setupHomePage() {
 // ===============================
 // Login - login.html
 // ===============================
+
+// ===============================
+// Ofertas - ofertas.html
+// (mostra os produtos marcados como "destaque")
+// ===============================
+
+async function setupOfertasPage() {
+    const grid = document.getElementById("offersGrid");
+    const emptyMessage = document.getElementById("emptyOffers");
+    const searchInput = document.getElementById("searchInput");
+    const categoryFilters = document.getElementById("offersCategoryFilters");
+
+    if (!grid) return;
+
+    let selectedCategory = "todas";
+
+    // Apenas produtos em destaque e disponiveis para o cliente
+    const allItems = await getItems();
+    const offers = allItems.filter(item => {
+        const disponivel = item.status === "Ativo" || item.status === "Baixo estoque" || item.status === "Baixo volume";
+        return item.destaque && disponivel;
+    });
+
+    function getAvailableCategories() {
+        return [...new Set(offers.map(item => item.categoria).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, "pt-BR"));
+    }
+
+    function renderCategoryButtons() {
+        if (!categoryFilters) return;
+
+        const categories = getAvailableCategories();
+        const baseClass = "category-btn px-5 py-2 rounded-full font-bold text-sm shadow-sm border hover:border-emerald-500 hover:text-emerald-500 transition-all whitespace-nowrap";
+        const activeClass = "active bg-emerald-600 text-white border-emerald-600";
+        const inactiveClass = "bg-white text-slate-600 border-slate-200";
+
+        categoryFilters.innerHTML = `
+            <button class="${baseClass} ${selectedCategory === "todas" ? activeClass : inactiveClass}" data-category="todas">
+                Todas as ofertas
+            </button>
+            ${categories.map(category => `
+                <button class="${baseClass} ${normalizeTextKey(selectedCategory) === normalizeTextKey(category) ? activeClass : inactiveClass}" data-category="${escapeHTML(category)}">
+                    ${escapeHTML(category)}
+                </button>
+            `).join("")}
+        `;
+    }
+
+    function renderOffers() {
+        const term = searchInput ? searchInput.value.toLowerCase().trim() : "";
+
+        const filtered = offers.filter(item => {
+            const text = `${item.nome} ${item.categoria} ${item.descricao || ""} ${item.nome_loja || ""}`.toLowerCase();
+            const matchesSearch = text.includes(term);
+            const matchesCategory = selectedCategory === "todas"
+                || normalizeTextKey(item.categoria) === normalizeTextKey(selectedCategory);
+            return matchesSearch && matchesCategory;
+        });
+
+        if (filtered.length === 0) {
+            grid.innerHTML = "";
+            if (emptyMessage) emptyMessage.classList.remove("hidden");
+            return;
+        }
+
+        if (emptyMessage) emptyMessage.classList.add("hidden");
+
+        grid.innerHTML = filtered.map(item => `
+            <article class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col h-full">
+                <div class="aspect-square relative overflow-hidden bg-white flex-shrink-0 border-b border-slate-100">
+                    <img class="w-full h-full object-contain p-4 mix-blend-multiply" src="${escapeHTML(item.imagem || makePlaceholder(item.nome))}" alt="${escapeHTML(item.nome)}">
+                    <span class="absolute top-3 left-3 inline-flex items-center gap-1 text-xs font-bold text-white bg-emerald-600 px-2 py-1 rounded-full">
+                        <span class="material-symbols-outlined text-sm">local_offer</span>
+                        Oferta
+                    </span>
+                </div>
+                <div class="p-4 flex flex-col flex-grow">
+                    <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded w-fit mb-2">
+                        ${escapeHTML(item.categoria)}
+                    </span>
+                    <h3 class="text-lg font-extrabold text-slate-900 mb-1">${escapeHTML(item.nome)}</h3>
+                    <p class="text-xs font-semibold text-slate-500 mb-1">${escapeHTML(item.nome_loja || "LocalMarket")}</p>
+                    <p class="text-sm text-slate-500 mb-3 flex-grow line-clamp-2">${escapeHTML(item.descricao || "Sem descrição.")}</p>
+                    <div class="mt-auto">
+                        <strong class="text-xl text-slate-900 block mb-3">${formatCurrency(item.preco)}</strong>
+                        <button class="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg hover:bg-emerald-700 transition" data-add-cart="${escapeHTML(item.id)}">
+                            Adicionar ao carrinho
+                        </button>
+                    </div>
+                </div>
+            </article>
+        `).join("");
+
+        setupCatalogActions();
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener("input", renderOffers);
+    }
+
+    if (categoryFilters) {
+        categoryFilters.addEventListener("click", event => {
+            const button = event.target.closest("[data-category]");
+            if (!button) return;
+            selectedCategory = button.dataset.category;
+            renderCategoryButtons();
+            renderOffers();
+        });
+    }
+
+    renderCategoryButtons();
+    renderOffers();
+}
 
 async function mergeGuestCartIntoBackend(session) {
     // Ao logar/cadastrar, leva o carrinho que o visitante montou (localStorage)

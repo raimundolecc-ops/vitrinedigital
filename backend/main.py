@@ -1166,16 +1166,16 @@ def get_produtos(slug_dono: Optional[str] = None, conn = Depends(get_db_connecti
     with conn.cursor() as cur:
         if slug_dono:
             cur.execute(
-                """SELECT id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque, data_criacao 
+                """SELECT id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque, data_criacao
                    FROM produtos WHERE slug_dono = %s ORDER BY data_criacao DESC""",
                 (slug_dono,)
             )
         else:
             cur.execute(
-                """SELECT id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque, data_criacao 
+                """SELECT id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque, data_criacao
                    FROM produtos ORDER BY data_criacao DESC"""
             )
-        
+
         produtos = cur.fetchall()
         # Formata o preço para float e a data para string ISO
         for prod in produtos:
@@ -1188,7 +1188,7 @@ def get_produtos(slug_dono: Optional[str] = None, conn = Depends(get_db_connecti
 def get_produto(prod_id: str, conn = Depends(get_db_connection)):
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque, data_criacao 
+            """SELECT id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque, data_criacao
                FROM produtos WHERE id = %s""",
             (prod_id,)
         )
@@ -1206,8 +1206,8 @@ def create_produto(prod: ProdutoCreate, conn = Depends(get_db_connection), _user
     with conn.cursor() as cur:
         ensure_category_exists(cur, prod.categoria, "produto")
         cur.execute(
-            """INSERT INTO produtos (id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
+            """INSERT INTO produtos (id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque, data_criacao""",
             (prod.id, prod.slug_dono, prod.nome_loja, prod.nome, prod.categoria, prod.descricao, prod.preco, prod.quantidade, prod.status, prod.imagem, prod.destaque)
         )
@@ -1223,9 +1223,9 @@ def update_produto(prod_id: str, prod: ProdutoUpdate, conn = Depends(get_db_conn
     with conn.cursor() as cur:
         ensure_category_exists(cur, prod.categoria, "produto")
         cur.execute(
-            """UPDATE produtos SET 
-               nome = %s, categoria = %s, descricao = %s, preco = %s, quantidade = %s, status = %s, imagem = %s, destaque = %s 
-               WHERE id = %s 
+            """UPDATE produtos SET
+               nome = %s, categoria = %s, descricao = %s, preco = %s, quantidade = %s, status = %s, imagem = %s, destaque = %s
+               WHERE id = %s
                RETURNING id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque, data_criacao""",
             (prod.nome, prod.categoria, prod.descricao, prod.preco, prod.quantidade, prod.status, prod.imagem, prod.destaque, prod_id)
         )
