@@ -1,6 +1,11 @@
 import psycopg
 import sys
 
+try:
+    from backend.security import hash_password
+except ImportError:
+    from security import hash_password
+
 # Parâmetros de conexão
 DB_PARAMS = "dbname=vitrine user=postgres password=1234 host=localhost port=5432"
 
@@ -12,6 +17,7 @@ DROP TABLE IF EXISTS pedidos CASCADE;
 DROP TABLE IF EXISTS carrinhos CASCADE;
 DROP TABLE IF EXISTS cupons CASCADE;
 DROP TABLE IF EXISTS produtos CASCADE;
+DROP TABLE IF EXISTS categorias CASCADE;
 DROP TABLE IF EXISTS lojas CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
 
@@ -32,12 +38,22 @@ CREATE TABLE lojas (
     nome VARCHAR(255) NOT NULL,
     categoria VARCHAR(100) NOT NULL,
     localizacao VARCHAR(255),
+    cep VARCHAR(20),
+    imagem TEXT,
     status VARCHAR(50) DEFAULT 'Pendente',
     slug_loja VARCHAR(100) UNIQUE NOT NULL,
     nome_proprietario VARCHAR(255),
     email_proprietario VARCHAR(255),
     data_nascimento_proprietario DATE,
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE categorias (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    tipo VARCHAR(30) NOT NULL,
+    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT categorias_nome_tipo_unique UNIQUE (nome, tipo)
 );
 
 -- Criar tabela produtos
@@ -118,9 +134,23 @@ SEED_USUARIOS = [
 ]
 
 SEED_LOJAS = [
-    ("ORG-001", "Green Valley Orgânicos", "Orgânicos", "Centro da cidade", "Ativo", "green-valley"),
-    ("ORG-002", "The Sourdough Loft", "Padaria", "Bairro histórico", "Ativo", "sourdough-loft"),
-    ("ORG-003", "Bloom & Stem", "Flores", "Jardim Leste", "Ativo", "bloom-stem"),
+    ("ORG-001", "Green Valley Orgânicos", "Orgânicos", "Centro da cidade", "77000-000", "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80", "Ativo", "green-valley"),
+    ("ORG-002", "The Sourdough Loft", "Padaria", "Bairro histórico", "77001-000", "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80", "Ativo", "sourdough-loft"),
+    ("ORG-003", "Bloom & Stem", "Flores", "Jardim Leste", "77002-000", "https://images.unsplash.com/photo-1487070183336-b863922373d4?auto=format&fit=crop&w=900&q=80", "Ativo", "bloom-stem"),
+]
+
+SEED_CATEGORIAS = [
+    ("Produto", "produto"),
+    ("Orgânicos", "produto"),
+    ("Padaria", "produto"),
+    ("Flores", "produto"),
+    ("Bebidas", "produto"),
+    ("Mercearia", "produto"),
+    ("Orgânicos", "loja"),
+    ("Padaria", "loja"),
+    ("Flores", "loja"),
+    ("Mercado", "loja"),
+    ("Restaurante", "loja"),
 ]
 
 SEED_PRODUTOS = [
@@ -187,18 +217,28 @@ def main():
                 print("Criando tabelas...")
                 cur.execute(SQL_CREATE_TABLES)
                 
-                # Inserir usuários
-                print("Inserindo usuários de teste...")
+                # Inserir usuários (senhas gravadas como hash bcrypt)
+                print("Inserindo usuários de teste (senhas criptografadas)...")
+                seed_usuarios_hash = [
+                    (email, hash_password(senha), nome, funcao, slug)
+                    for (email, senha, nome, funcao, slug) in SEED_USUARIOS
+                ]
                 cur.executemany(
                     "INSERT INTO usuarios (email, senha, nome, funcao, slug_loja) VALUES (%s, %s, %s, %s, %s)",
-                    SEED_USUARIOS
+                    seed_usuarios_hash
                 )
                 
                 # Inserir lojas
                 print("Inserindo lojas de teste...")
                 cur.executemany(
-                    "INSERT INTO lojas (id, nome, categoria, localizacao, status, slug_loja) VALUES (%s, %s, %s, %s, %s, %s)",
+                    "INSERT INTO lojas (id, nome, categoria, localizacao, cep, imagem, status, slug_loja) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                     SEED_LOJAS
+                )
+
+                print("Inserindo categorias iniciais...")
+                cur.executemany(
+                    "INSERT INTO categorias (nome, tipo) VALUES (%s, %s)",
+                    SEED_CATEGORIAS
                 )
                 
                 # Inserir produtos

@@ -1,13 +1,31 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import psycopg
+import jwt
 
 try:
     from backend.database import get_db_connection
 except ImportError:
     from database import get_db_connection
+
+try:
+    from backend.security import (
+        hash_password,
+        verify_password,
+        is_bcrypt_hash,
+        create_access_token,
+        decode_access_token,
+    )
+except ImportError:
+    from security import (
+        hash_password,
+        verify_password,
+        is_bcrypt_hash,
+        create_access_token,
+        decode_access_token,
+    )
 
 app = FastAPI(title="LocalMarket API", version="1.0.0")
 
@@ -35,6 +53,7 @@ class UserSession(BaseModel):
     name: str
     storeSlug: Optional[str] = None
     loggedAt: str
+    token: Optional[str] = None
 
 class RegisterRequest(BaseModel):
     email: str
@@ -120,7 +139,50 @@ def ensure_lojas_schema(conn) -> None:
         cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS nome_proprietario VARCHAR(255)")
         cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS email_proprietario VARCHAR(255)")
         cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS data_nascimento_proprietario DATE")
+        cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS cep VARCHAR(20)")
+        cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS imagem TEXT")
     conn.commit()
+
+def ensure_categorias_schema(conn) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """CREATE TABLE IF NOT EXISTS categorias (
+                   id SERIAL PRIMARY KEY,
+                   nome VARCHAR(100) NOT NULL,
+                   tipo VARCHAR(30) NOT NULL,
+                   data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                   CONSTRAINT categorias_nome_tipo_unique UNIQUE (nome, tipo)
+               )"""
+        )
+        cur.executemany(
+            """INSERT INTO categorias (nome, tipo)
+               VALUES (%s, %s)
+               ON CONFLICT (nome, tipo) DO NOTHING""",
+            [
+                ("Produto", "produto"),
+                ("Organicos", "produto"),
+                ("Padaria", "produto"),
+                ("Flores", "produto"),
+                ("Bebidas", "produto"),
+                ("Mercearia", "produto"),
+                ("Organicos", "loja"),
+                ("Padaria", "loja"),
+                ("Flores", "loja"),
+                ("Mercado", "loja"),
+                ("Restaurante", "loja")
+            ]
+        )
+    conn.commit()
+
+def ensure_category_exists(cur, nome: Optional[str], tipo: str) -> None:
+    if not nome:
+        return
+    cur.execute(
+        """INSERT INTO categorias (nome, tipo)
+           VALUES (%s, %s)
+           ON CONFLICT (nome, tipo) DO NOTHING""",
+        (nome.strip(), tipo)
+    )
 
 def normalize_store_slug(value: str) -> str:
     slug = value.lower().strip()
@@ -204,7 +266,7 @@ def sync_merchant_user(
                     """UPDATE usuarios
                        SET email = %s, nome = %s, senha = %s, slug_loja = %s
                        WHERE email = %s AND funcao = 'comerciante'""",
-                    (email_proprietario, nome_proprietario, senha_proprietario, slug_loja, lookup_email)
+                    (email_proprietario, nome_proprietario, hash_password(senha_proprietario), slug_loja, lookup_email)
                 )
             else:
                 cur.execute(
@@ -225,7 +287,7 @@ def sync_merchant_user(
         cur.execute(
             """INSERT INTO usuarios (email, senha, nome, funcao, slug_loja)
                VALUES (%s, %s, %s, 'comerciante', %s)""",
-            (email_proprietario, senha_proprietario, nome_proprietario, slug_loja)
+            (email_proprietario, hash_password(senha_proprietario), nome_proprietario, slug_loja)
         )
     except psycopg.Error as exc:
         raise HTTPException(
@@ -238,6 +300,8 @@ class LojaBase(BaseModel):
     nome: str
     categoria: Optional[str] = None
     localizacao: Optional[str] = None
+    cep: Optional[str] = None
+    imagem: Optional[str] = None
     status: str
     slug_loja: str
     nome_proprietario: Optional[str] = None
@@ -249,6 +313,8 @@ class LojaCreate(BaseModel):
     nome: str
     categoria: str
     localizacao: Optional[str] = None
+    cep: Optional[str] = None
+    imagem: Optional[str] = None
     nome_proprietario: str
     email_proprietario: str
     data_nascimento_proprietario: str
@@ -259,6 +325,8 @@ class LojaUpdate(BaseModel):
     nome: str
     categoria: str
     localizacao: Optional[str] = None
+    cep: Optional[str] = None
+    imagem: Optional[str] = None
     nome_proprietario: str
     email_proprietario: str
     data_nascimento_proprietario: str
@@ -358,6 +426,66 @@ class CupomValidationResponse(BaseModel):
     categoria: Optional[str] = None
     mensagem: str
 
+class CategoriaBase(BaseModel):
+    id: int
+    nome: str
+    tipo: str
+    data_criacao: Optional[str] = None
+
+class CategoriaCreate(BaseModel):
+    nome: str
+    tipo: str
+
+class CategoriaUpdate(BaseModel):
+    nome: str
+    tipo: str
+
+# ==========================================
+# AUTENTICAÇÃO POR TOKEN (dependencias)
+# ==========================================
+
+def get_current_user(authorization: Optional[str] = Header(default=None)) -> dict:
+    """
+    Valida o token JWT enviado no cabecalho Authorization: Bearer <token>.
+    Retorna o payload ({sub: email, role: ...}) ou lanca 401.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Autenticacao necessaria. Faca login novamente.",
+        )
+
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_access_token(token)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessao expirada. Faca login novamente.")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido. Faca login novamente.")
+
+    return payload
+
+
+def require_management(user: dict = Depends(get_current_user)) -> dict:
+    """Exige um usuario autenticado com papel de comerciante ou admin."""
+    if user.get("role") not in ("comerciante", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso permitido apenas para comerciantes ou administradores.",
+        )
+    return user
+
+
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Exige um usuario autenticado com papel de administrador."""
+    if user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso permitido apenas para administradores.",
+        )
+    return user
+
+
 # ==========================================
 # ENDPOINTS - AUTENTICAÇÃO
 # ==========================================
@@ -370,21 +498,51 @@ def login(req: LoginRequest, conn = Depends(get_db_connection)):
             (req.email, req.role)
         )
         user = cur.fetchone()
-        
-        if not user or user["senha"] != req.password:
+
+        if not user or not verify_password(req.password, user["senha"]):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="E-mail ou senha incorretos para este tipo de acesso."
             )
-        
+
+        # Migracao transparente: se a senha ainda estava em texto puro, regrava como hash.
+        if not is_bcrypt_hash(user["senha"]):
+            cur.execute(
+                "UPDATE usuarios SET senha = %s WHERE email = %s",
+                (hash_password(req.password), user["email"])
+            )
+            conn.commit()
+
         import datetime
+        token = create_access_token(user["email"], user["funcao"])
         return UserSession(
             email=user["email"],
             role=user["funcao"],
             name=user["nome"],
             storeSlug=user["slug_loja"],
-            loggedAt=datetime.datetime.now().isoformat()
+            loggedAt=datetime.datetime.now().isoformat(),
+            token=token
         )
+
+
+@app.get("/api/auth/me", response_model=UserPublic)
+def get_me(user: dict = Depends(get_current_user), conn = Depends(get_db_connection)):
+    """Valida o token atual e devolve os dados do usuario logado."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT email, nome, funcao, slug_loja, data_criacao FROM usuarios WHERE email = %s",
+            (user.get("sub"),)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+        return {
+            "email": row["email"],
+            "name": row["nome"],
+            "funcao": row["funcao"],
+            "slug_loja": row["slug_loja"],
+            "data_criacao": row["data_criacao"].isoformat() if row["data_criacao"] else None,
+        }
 
 @app.post("/api/auth/register", response_model=UserSession)
 def register(req: RegisterRequest, conn = Depends(get_db_connection)):
@@ -395,18 +553,20 @@ def register(req: RegisterRequest, conn = Depends(get_db_connection)):
 
         cur.execute(
             "INSERT INTO usuarios (email, senha, nome, funcao) VALUES (%s, %s, %s, 'cliente') RETURNING email, nome, funcao, slug_loja",
-            (req.email, req.password, req.name)
+            (req.email, hash_password(req.password), req.name)
         )
         user = cur.fetchone()
         conn.commit()
 
         import datetime
+        token = create_access_token(user["email"], user["funcao"])
         return UserSession(
             email=user["email"],
             role=user["funcao"],
             name=user["nome"],
             storeSlug=user["slug_loja"],
-            loggedAt=datetime.datetime.now().isoformat()
+            loggedAt=datetime.datetime.now().isoformat(),
+            token=token
         )
 
 @app.get("/api/usuarios", response_model=List[UserPublic])
@@ -433,6 +593,106 @@ def get_usuarios(role: Optional[str] = None, conn = Depends(get_db_connection)):
             }
             response_users.append(payload)
         return response_users
+
+@app.get("/api/categorias", response_model=List[CategoriaBase])
+def get_categorias(tipo: Optional[str] = None, conn = Depends(get_db_connection)):
+    ensure_categorias_schema(conn)
+
+    with conn.cursor() as cur:
+        if tipo:
+            cur.execute(
+                "SELECT id, nome, tipo, data_criacao FROM categorias WHERE tipo = %s ORDER BY nome",
+                (tipo,)
+            )
+        else:
+            cur.execute(
+                "SELECT id, nome, tipo, data_criacao FROM categorias ORDER BY tipo, nome"
+            )
+        categorias = cur.fetchall()
+        for categoria in categorias:
+            if categoria.get("data_criacao"):
+                categoria["data_criacao"] = categoria["data_criacao"].isoformat()
+        return categorias
+
+@app.post("/api/categorias", response_model=CategoriaBase)
+def create_categoria(req: CategoriaCreate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+    ensure_categorias_schema(conn)
+
+    nome = req.nome.strip()
+    tipo = req.tipo.strip().lower()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Informe o nome da categoria.")
+    if tipo not in {"produto", "loja"}:
+        raise HTTPException(status_code=400, detail="Tipo de categoria invalido.")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO categorias (nome, tipo)
+               VALUES (%s, %s)
+               ON CONFLICT (nome, tipo) DO UPDATE SET nome = EXCLUDED.nome
+               RETURNING id, nome, tipo, data_criacao""",
+            (nome, tipo)
+        )
+        categoria = cur.fetchone()
+        conn.commit()
+        if categoria.get("data_criacao"):
+            categoria["data_criacao"] = categoria["data_criacao"].isoformat()
+        return categoria
+
+@app.put("/api/categorias/{categoria_id}", response_model=CategoriaBase)
+def update_categoria(categoria_id: int, req: CategoriaUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+    ensure_categorias_schema(conn)
+
+    nome = req.nome.strip()
+    tipo = req.tipo.strip().lower()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Informe o nome da categoria.")
+    if tipo not in {"produto", "loja"}:
+        raise HTTPException(status_code=400, detail="Tipo de categoria invalido.")
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT id, nome, tipo FROM categorias WHERE id = %s", (categoria_id,))
+        categoria_atual = cur.fetchone()
+        if not categoria_atual:
+            raise HTTPException(status_code=404, detail="Categoria nao encontrada.")
+
+        cur.execute(
+            "SELECT id FROM categorias WHERE nome = %s AND tipo = %s AND id <> %s",
+            (nome, tipo, categoria_id)
+        )
+        if cur.fetchone():
+            raise HTTPException(status_code=409, detail="Ja existe uma categoria com esse nome.")
+
+        cur.execute(
+            """UPDATE categorias
+               SET nome = %s,
+                   tipo = %s
+               WHERE id = %s
+               RETURNING id, nome, tipo, data_criacao""",
+            (nome, tipo, categoria_id)
+        )
+        categoria = cur.fetchone()
+
+        if categoria_atual["tipo"] == "loja":
+            cur.execute(
+                "UPDATE lojas SET categoria = %s WHERE categoria = %s",
+                (nome, categoria_atual["nome"])
+            )
+        elif categoria_atual["tipo"] == "produto":
+            cur.execute(
+                "UPDATE produtos SET categoria = %s WHERE categoria = %s",
+                (nome, categoria_atual["nome"])
+            )
+
+        cur.execute(
+            "UPDATE cupons SET categoria = %s WHERE categoria = %s",
+            (nome, categoria_atual["nome"])
+        )
+
+        conn.commit()
+        if categoria.get("data_criacao"):
+            categoria["data_criacao"] = categoria["data_criacao"].isoformat()
+        return categoria
 
 @app.get("/api/cupons", response_model=List[CupomResponse])
 def get_cupons(email: Optional[str] = None, conn = Depends(get_db_connection)):
@@ -462,7 +722,7 @@ def get_cupons(email: Optional[str] = None, conn = Depends(get_db_connection)):
         return cupons
 
 @app.post("/api/cupons", response_model=CupomResponse)
-def create_cupom(req: CupomCreate, conn = Depends(get_db_connection)):
+def create_cupom(req: CupomCreate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
     with conn.cursor() as cur:
         cur.execute("SELECT email, funcao, slug_loja FROM usuarios WHERE email = %s", (req.criado_por,))
         usuario = cur.fetchone()
@@ -666,7 +926,7 @@ def get_pedidos(email: Optional[str] = None, conn = Depends(get_db_connection)):
         return orders
 
 @app.put("/api/pedidos/{pedido_id}/status", response_model=OrderResponse)
-def update_pedido_status(pedido_id: int, req: OrderStatusUpdate, conn = Depends(get_db_connection)):
+def update_pedido_status(pedido_id: int, req: OrderStatusUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
     novo_status = ensure_valid_order_status(req.status)
 
     if not can_manage_order(conn, pedido_id, req.atualizado_por):
@@ -718,9 +978,10 @@ def get_pedido(pedido_id: int, conn = Depends(get_db_connection)):
 @app.get("/api/lojas", response_model=List[LojaBase])
 def get_lojas(conn = Depends(get_db_connection)):
     ensure_lojas_schema(conn)
+    ensure_categorias_schema(conn)
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT id, nome, categoria, localizacao, status, slug_loja,
+            """SELECT id, nome, categoria, localizacao, cep, imagem, status, slug_loja,
                       nome_proprietario, email_proprietario, data_nascimento_proprietario, data_criacao
                FROM lojas
                ORDER BY nome"""
@@ -734,9 +995,10 @@ def get_lojas(conn = Depends(get_db_connection)):
         return lojas
 
 @app.post("/api/lojas", response_model=LojaBase)
-def create_loja(req: LojaCreate, conn = Depends(get_db_connection)):
+def create_loja(req: LojaCreate, conn = Depends(get_db_connection), _user: dict = Depends(require_admin)):
     import time
     ensure_lojas_schema(conn)
+    ensure_categorias_schema(conn)
     id_org = f"ORG-{int(time.time() * 1000)}"
     with conn.cursor() as cur:
         slug = build_unique_store_slug(cur, req.nome)
@@ -751,20 +1013,23 @@ def create_loja(req: LojaCreate, conn = Depends(get_db_connection)):
             email_proprietario=req.email_proprietario,
             senha_proprietario=req.senha_proprietario
         )
+        ensure_category_exists(cur, req.categoria, "loja")
 
         cur.execute(
             """INSERT INTO lojas (
-                    id, nome, categoria, localizacao, status, slug_loja,
+                    id, nome, categoria, localizacao, cep, imagem, status, slug_loja,
                     nome_proprietario, email_proprietario, data_nascimento_proprietario
                )
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-               RETURNING id, nome, categoria, localizacao, status, slug_loja,
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               RETURNING id, nome, categoria, localizacao, cep, imagem, status, slug_loja,
                          nome_proprietario, email_proprietario, data_nascimento_proprietario, data_criacao""",
             (
                 id_org,
                 req.nome,
                 req.categoria,
                 req.localizacao or "Nao informado",
+                req.cep,
+                req.imagem,
                 req.status or "Pendente",
                 slug,
                 req.nome_proprietario,
@@ -781,28 +1046,10 @@ def create_loja(req: LojaCreate, conn = Depends(get_db_connection)):
             new_loja["data_criacao"] = new_loja["data_criacao"].isoformat()
         return new_loja
 
-    slug = None
-    
-    with conn.cursor() as cur:
-        # Verificar se o slug já existe
-        slug = build_unique_store_slug(cur, req.nome)
-        cur.execute("SELECT id FROM lojas WHERE email_proprietario = %s", (req.email_proprietario,))
-        if cur.fetchone():
-            raise HTTPException(status_code=409, detail="Ja existe uma loja vinculada a este e-mail de proprietario.")
-            
-        cur.execute(
-            """INSERT INTO lojas (id, nome, categoria, localizacao, status, slug_loja) 
-               VALUES (%s, %s, 'Geral', 'Não informado', 'Pendente', %s) 
-               RETURNING id, nome, categoria, localizacao, status, slug_loja""",
-            (id_org, req.nome, slug)
-        )
-        new_loja = cur.fetchone()
-        conn.commit()
-        return new_loja
-
 @app.put("/api/lojas/{loja_id}", response_model=LojaBase)
-def update_loja(loja_id: str, req: LojaUpdate, conn = Depends(get_db_connection)):
+def update_loja(loja_id: str, req: LojaUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_admin)):
     ensure_lojas_schema(conn)
+    ensure_categorias_schema(conn)
 
     with conn.cursor() as cur:
         cur.execute("SELECT id, slug_loja, nome, email_proprietario FROM lojas WHERE id = %s", (loja_id,))
@@ -827,24 +1074,29 @@ def update_loja(loja_id: str, req: LojaUpdate, conn = Depends(get_db_connection)
             senha_proprietario=req.senha_proprietario,
             current_email=existing_loja.get("email_proprietario")
         )
+        ensure_category_exists(cur, req.categoria, "loja")
 
         cur.execute(
             """UPDATE lojas
                SET nome = %s,
                    categoria = %s,
                    localizacao = %s,
+                   cep = %s,
+                   imagem = %s,
                    status = %s,
                    slug_loja = %s,
                    nome_proprietario = %s,
                    email_proprietario = %s,
                    data_nascimento_proprietario = %s
                WHERE id = %s
-               RETURNING id, nome, categoria, localizacao, status, slug_loja,
+               RETURNING id, nome, categoria, localizacao, cep, imagem, status, slug_loja,
                          nome_proprietario, email_proprietario, data_nascimento_proprietario, data_criacao""",
             (
                 req.nome,
                 req.categoria,
                 req.localizacao or "Nao informado",
+                req.cep,
+                req.imagem,
                 req.status,
                 slug,
                 req.nome_proprietario,
@@ -870,7 +1122,7 @@ def update_loja(loja_id: str, req: LojaUpdate, conn = Depends(get_db_connection)
         return updated_loja
 
 @app.put("/api/lojas/{loja_id}/status", response_model=LojaBase)
-def toggle_loja_status(loja_id: str, conn = Depends(get_db_connection)):
+def toggle_loja_status(loja_id: str, conn = Depends(get_db_connection), _user: dict = Depends(require_admin)):
     ensure_lojas_schema(conn)
     with conn.cursor() as cur:
         cur.execute("SELECT status FROM lojas WHERE id = %s", (loja_id,))
@@ -883,7 +1135,7 @@ def toggle_loja_status(loja_id: str, conn = Depends(get_db_connection)):
             """UPDATE lojas
                SET status = %s
                WHERE id = %s
-               RETURNING id, nome, categoria, localizacao, status, slug_loja,
+               RETURNING id, nome, categoria, localizacao, cep, imagem, status, slug_loja,
                          nome_proprietario, email_proprietario, data_nascimento_proprietario, data_criacao""",
             (new_status, loja_id)
         )
@@ -896,7 +1148,7 @@ def toggle_loja_status(loja_id: str, conn = Depends(get_db_connection)):
         return updated_loja
 
 @app.delete("/api/lojas/{loja_id}")
-def delete_loja(loja_id: str, conn = Depends(get_db_connection)):
+def delete_loja(loja_id: str, conn = Depends(get_db_connection), _user: dict = Depends(require_admin)):
     ensure_lojas_schema(conn)
     with conn.cursor() as cur:
         cur.execute("DELETE FROM lojas WHERE id = %s RETURNING id", (loja_id,))
@@ -949,8 +1201,10 @@ def get_produto(prod_id: str, conn = Depends(get_db_connection)):
         return prod
 
 @app.post("/api/produtos", response_model=ProdutoBase)
-def create_produto(prod: ProdutoCreate, conn = Depends(get_db_connection)):
+def create_produto(prod: ProdutoCreate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+    ensure_categorias_schema(conn)
     with conn.cursor() as cur:
+        ensure_category_exists(cur, prod.categoria, "produto")
         cur.execute(
             """INSERT INTO produtos (id, slug_dono, nome_loja, nome, categoria, descricao, preco, quantidade, status, imagem, destaque) 
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
@@ -964,8 +1218,10 @@ def create_produto(prod: ProdutoCreate, conn = Depends(get_db_connection)):
         return new_prod
 
 @app.put("/api/produtos/{prod_id}", response_model=ProdutoBase)
-def update_produto(prod_id: str, prod: ProdutoUpdate, conn = Depends(get_db_connection)):
+def update_produto(prod_id: str, prod: ProdutoUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+    ensure_categorias_schema(conn)
     with conn.cursor() as cur:
+        ensure_category_exists(cur, prod.categoria, "produto")
         cur.execute(
             """UPDATE produtos SET 
                nome = %s, categoria = %s, descricao = %s, preco = %s, quantidade = %s, status = %s, imagem = %s, destaque = %s 
@@ -982,7 +1238,7 @@ def update_produto(prod_id: str, prod: ProdutoUpdate, conn = Depends(get_db_conn
         return updated
 
 @app.delete("/api/produtos/{prod_id}")
-def delete_produto(prod_id: str, conn = Depends(get_db_connection)):
+def delete_produto(prod_id: str, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
     with conn.cursor() as cur:
         cur.execute("DELETE FROM produtos WHERE id = %s RETURNING id", (prod_id,))
         if not cur.fetchone():

@@ -14,6 +14,31 @@ const STORAGE_KEYS = {
 let activeCoupon = null;
 
 // ===============================
+// Autenticação: injeta o token JWT em toda chamada à API
+// ===============================
+const _originalFetch = window.fetch.bind(window);
+window.fetch = function (resource, options = {}) {
+    try {
+        const isApiCall = typeof resource === "string" && resource.startsWith(API_BASE);
+        if (isApiCall) {
+            const session = JSON.parse(localStorage.getItem(STORAGE_KEYS.session) || "null");
+            if (session && session.token) {
+                options = {
+                    ...options,
+                    headers: {
+                        ...(options.headers || {}),
+                        Authorization: `Bearer ${session.token}`
+                    }
+                };
+            }
+        }
+    } catch (e) {
+        // se algo falhar, segue a requisição sem o token
+    }
+    return _originalFetch(resource, options);
+};
+
+// ===============================
 // Inicialização
 // ===============================
 
@@ -27,7 +52,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const page = document.body.dataset.page;
 
     if (page === "home") {
-        setupHomePage();
+        await setupHomePage();
     }
 
     if (page === "login") {
@@ -52,6 +77,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (page === "loja") {
         await setupLojaPage();
+    }
+
+    if (page === "mapa") {
+        await setupMapaPage();
     }
 
     if (page === "carrinho") {
@@ -134,6 +163,115 @@ async function getOrganizations() {
         console.error(e);
         return [];
     }
+}
+
+async function getCategorias(tipo = null) {
+    let url = `${API_BASE}/categorias`;
+    if (tipo) {
+        url += `?tipo=${encodeURIComponent(tipo)}`;
+    }
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Erro ao obter categorias da API");
+        return await response.json();
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
+}
+
+async function createCategoria(tipo, nome) {
+    const response = await fetch(`${API_BASE}/categorias`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo, nome })
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || "Nao foi possivel criar a categoria.");
+    }
+
+    return response.json();
+}
+
+async function updateCategoria(id, tipo, nome) {
+    const response = await fetch(`${API_BASE}/categorias/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo, nome })
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || "Nao foi possivel atualizar a categoria.");
+    }
+
+    return response.json();
+}
+
+function fillCategorySelect(select, categorias, { placeholder = "Selecione uma categoria", allowNewOption = false, selectedValue = "" } = {}) {
+    if (!select) return;
+
+    const normalizedSelected = selectedValue || "";
+    const categoryNames = categorias.map(categoria => categoria.nome);
+    const uniqueNames = [...new Set(categoryNames)];
+
+    if (normalizedSelected && !uniqueNames.includes(normalizedSelected)) {
+        uniqueNames.push(normalizedSelected);
+    }
+
+    select.innerHTML = `
+        <option value="">${escapeHTML(placeholder)}</option>
+        ${uniqueNames.map(nome => `
+            <option value="${escapeHTML(nome)}" ${nome === normalizedSelected ? "selected" : ""}>
+                ${escapeHTML(nome)}
+            </option>
+        `).join("")}
+        ${allowNewOption ? `<option value="__new__">+ Nova categoria</option>` : ""}
+    `;
+}
+
+function normalizeTextKey(value) {
+    return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+}
+
+function getStoreImageUrl(store) {
+    if (store?.imagem && store.imagem.trim()) {
+        return store.imagem.trim();
+    }
+
+    const storeImages = {
+        "green-valley": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80",
+        "sourdough-loft": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80",
+        "bloom-stem": "https://images.unsplash.com/photo-1487070183336-b863922373d4?auto=format&fit=crop&w=900&q=80"
+    };
+
+    return storeImages[store?.slug_loja] || makePlaceholder(store?.nome || "Loja");
+}
+
+function getVisibleStores(stores) {
+    return (stores || []).filter(store => normalizeTextKey(store?.status) !== "inativo");
+}
+
+function buildStoreAddressLabel(store) {
+    const parts = [store?.localizacao, store?.cep].filter(Boolean);
+    return parts.length ? parts.join(" - ") : "Endereco nao informado";
+}
+
+function formatStoreMapQuery(store) {
+    const parts = [
+        store?.nome,
+        store?.localizacao,
+        store?.cep,
+        "Brasil"
+    ].filter(Boolean);
+    return parts.join(", ");
 }
 
 async function getCart() {
@@ -551,13 +689,25 @@ function setupUserInfo() {
         element.textContent = session ? session.role : "visitante";
     });
 
-    // Injeta menu do cliente logado em todas as páginas públicas
-    if (session && session.role === "cliente") {
-        injectClientMenu(session);
+    // Injeta o menu do usuário logado (cliente, lojista ou admin) nas páginas públicas
+    if (session) {
+        injectUserMenu(session);
     }
 }
 
-function injectClientMenu(session) {
+function getUserMenuConfig(session) {
+    const role = session.role;
+    if (role === "admin") {
+        return { roleLabel: "Administrador", panelHref: "admin.html", panelLabel: "Painel", ordersLabel: "Pedidos" };
+    }
+    if (role === "comerciante") {
+        return { roleLabel: "Lojista", panelHref: "dashboard.html", panelLabel: "Painel", ordersLabel: "Pedidos" };
+    }
+    return { roleLabel: "Cliente", panelHref: null, panelLabel: null, ordersLabel: "Meus Pedidos" };
+}
+
+function injectUserMenu(session) {
+    const menu = getUserMenuConfig(session);
     // ===== DESKTOP: substitui o botão "Entrar" pelo dropdown do cliente =====
     const loginLinks = document.querySelectorAll("a[href='login.html']");
     loginLinks.forEach(link => {
@@ -586,12 +736,18 @@ function injectClientMenu(session) {
             </button>
             <div class="client-dropdown" role="menu" id="clientDropdown">
                 <div class="client-dropdown-header">
-                    <span>Logado como</span>
-                    <strong>${escapeHTML(session.name || "Cliente")}</strong>
+                    <span>Logado como ${escapeHTML(menu.roleLabel)}</span>
+                    <strong>${escapeHTML(session.name || menu.roleLabel)}</strong>
                 </div>
+                ${menu.panelHref ? `
+                <a href="${menu.panelHref}" class="client-dropdown-item" role="menuitem" id="clientMenuPanel">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    ${escapeHTML(menu.panelLabel)}
+                </a>
+                ` : ""}
                 <a href="pedidos.html" class="client-dropdown-item" role="menuitem" id="clientMenuPedidos">
                     <span class="material-symbols-outlined">receipt_long</span>
-                    Meus Pedidos
+                    ${escapeHTML(menu.ordersLabel)}
                 </a>
                 <div class="client-dropdown-divider"></div>
                 <button class="client-dropdown-item is-danger" role="menuitem" id="clientMenuLogout" type="button" data-logout>
@@ -653,10 +809,16 @@ function injectClientMenu(session) {
     const mobileSection = document.createElement("div");
     mobileSection.className = "mobile-client-section";
     mobileSection.innerHTML = `
-        <span class="mobile-client-label">Minha conta</span>
+        <span class="mobile-client-label">Minha conta (${escapeHTML(menu.roleLabel)})</span>
+        ${menu.panelHref ? `
+        <a href="${menu.panelHref}" class="mobile-client-link" id="mobileMenuPanel">
+            <span class="material-symbols-outlined">dashboard</span>
+            ${escapeHTML(menu.panelLabel)}
+        </a>
+        ` : ""}
         <a href="pedidos.html" class="mobile-client-link" id="mobileMenuPedidos">
             <span class="material-symbols-outlined">receipt_long</span>
-            Meus Pedidos
+            ${escapeHTML(menu.ordersLabel)}
         </a>
         <button class="mobile-client-link is-danger" type="button" data-logout-mobile id="mobileMenuLogout">
             <span class="material-symbols-outlined">logout</span>
@@ -729,7 +891,7 @@ async function renderAllStores() {
 
     if (!grid) return;
 
-    let organizations = await getOrganizations();
+    let organizations = getVisibleStores(await getOrganizations());
 
     if (organizations.length === 0) {
         if (emptyMessage) {
@@ -746,12 +908,7 @@ async function renderAllStores() {
     if (emptyMessage) emptyMessage.classList.add("hidden");
 
     grid.innerHTML = organizations.map(org => {
-        const storeImages = {
-            "green-valley": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80",
-            "sourdough-loft": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80",
-            "bloom-stem": "https://images.unsplash.com/photo-1487070183336-b863922373d4?auto=format&fit=crop&w=900&q=80"
-        };
-        const imageUrl = storeImages[org.slug_loja] || "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=900&q=80";
+        const imageUrl = getStoreImageUrl(org);
 
         return `
             <article class="bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col h-full">
@@ -765,7 +922,7 @@ async function renderAllStores() {
                     <h3 class="text-xl font-extrabold text-slate-900 mb-1">${escapeHTML(org.nome)}</h3>
                     <p class="text-sm font-semibold text-slate-500 mb-3 flex-grow flex items-center gap-1">
                         <span class="material-symbols-outlined text-sm">location_on</span>
-                        ${escapeHTML(org.localizacao || "Sem localização")}
+                        ${escapeHTML(buildStoreAddressLabel(org))}
                     </p>
                     <div class="mt-auto pt-2">
                         <a href="loja.html?loja=${escapeHTML(org.slug_loja)}" class="block w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all text-center shadow-sm">
@@ -776,6 +933,106 @@ async function renderAllStores() {
             </article>
         `;
     }).join("");
+}
+
+async function setupMapaPage() {
+    const params = new URLSearchParams(window.location.search);
+    const selectedSlug = params.get("loja");
+    const searchInput = document.getElementById("searchInput");
+    const storeList = document.getElementById("mapStoreList");
+    const mapFrame = document.getElementById("mapFrame");
+    const selectedStoreName = document.getElementById("selectedMapStoreName");
+    const selectedStoreCategory = document.getElementById("selectedMapStoreCategory");
+    const selectedStoreAddress = document.getElementById("selectedMapStoreAddress");
+    const selectedStoreLink = document.getElementById("selectedMapStoreLink");
+
+    if (!storeList || !mapFrame) return;
+
+    let organizations = getVisibleStores(await getOrganizations());
+
+    function updateMap(store) {
+        const query = formatStoreMapQuery(store);
+        if (!query) return;
+        mapFrame.src = `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+        if (selectedStoreName) selectedStoreName.textContent = store?.nome || "Loja selecionada";
+        if (selectedStoreCategory) selectedStoreCategory.textContent = store?.categoria || "Sem categoria";
+        if (selectedStoreAddress) selectedStoreAddress.textContent = buildStoreAddressLabel(store);
+        if (selectedStoreLink) {
+            selectedStoreLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+        }
+    }
+
+    function render() {
+        const term = searchInput ? searchInput.value.toLowerCase().trim() : "";
+        let filteredStores = organizations;
+
+        if (term) {
+            filteredStores = organizations.filter(store => {
+                const text = `${store.nome} ${store.categoria || ""} ${store.localizacao || ""} ${store.cep || ""}`.toLowerCase();
+                return text.includes(term);
+            });
+        }
+
+        if (filteredStores.length === 0) {
+            storeList.innerHTML = `
+                <div class="empty-state">
+                    <h3>Nenhuma loja encontrada</h3>
+                    <p>Ajuste a busca para visualizar as lojas cadastradas no mapa.</p>
+                </div>
+            `;
+            if (selectedStoreName) selectedStoreName.textContent = "Nenhuma loja encontrada";
+            if (selectedStoreCategory) selectedStoreCategory.textContent = "Categoria";
+            if (selectedStoreAddress) selectedStoreAddress.textContent = "Tente ajustar a busca para localizar uma loja.";
+            return;
+        }
+
+        storeList.innerHTML = filteredStores.map(store => `
+            <article class="store-card border border-slate-200 rounded-2xl p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h4 class="font-extrabold text-slate-900">${escapeHTML(store.nome)}</h4>
+                        <p class="text-sm text-emerald-700 font-semibold">${escapeHTML(store.categoria || "Sem categoria")}</p>
+                    </div>
+                    <span class="badge-status ${getStatusClass(store.status)}">${escapeHTML(store.status)}</span>
+                </div>
+                <p class="text-sm text-slate-600 mt-3">${escapeHTML(buildStoreAddressLabel(store))}</p>
+                <p class="text-xs text-slate-500 mt-1">CEP: ${escapeHTML(store.cep || "Nao informado")}</p>
+                <p class="text-xs text-slate-500 mt-1">Contato: ${escapeHTML(store.email_proprietario || "-")}</p>
+                <div class="mt-4 flex gap-2">
+                    <button class="btn btn-primary btn-sm" type="button" data-map-store="${escapeHTML(store.id)}">
+                        Ver no mapa
+                    </button>
+                    <a href="loja.html?loja=${encodeURIComponent(store.slug_loja)}" class="btn btn-outline-secondary btn-sm">
+                        Visitar loja
+                    </a>
+                </div>
+            </article>
+        `).join("");
+
+        storeList.querySelectorAll("[data-map-store]").forEach(button => {
+            button.addEventListener("click", () => {
+                const storeId = button.dataset.mapStore;
+                const store = filteredStores.find(item => item.id === storeId);
+                if (store) {
+                    updateMap(store);
+                }
+            });
+        });
+
+        const selectedStore = selectedSlug
+            ? filteredStores.find(store => store.slug_loja === selectedSlug)
+            : filteredStores[0];
+
+        if (selectedStore) {
+            updateMap(selectedStore);
+        }
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener("input", render);
+    }
+
+    render();
 }
 
 async function renderLojaItems(storeSlug) {
@@ -827,36 +1084,96 @@ async function renderLojaItems(storeSlug) {
 // Página inicial - index.html
 // ===============================
 
-function setupHomePage() {
+async function setupHomePage() {
     const searchInput = document.getElementById("searchInput");
-    const categoryButtons = document.querySelectorAll(".category-btn");
-    const storeCards = document.querySelectorAll(".store-card");
+    const categoryFilters = document.getElementById("homeCategoryFilters");
+    const storesGrid = document.getElementById("storesGrid");
     const emptyMessage = document.getElementById("emptyMessage");
 
+    if (!storesGrid || !categoryFilters) return;
+
     let selectedCategory = "todas";
+    const [organizationsResponse, categoriesResponse] = await Promise.all([
+        getOrganizations(),
+        getCategorias("loja")
+    ]);
+    const organizations = getVisibleStores(organizationsResponse);
+
+    function getAvailableCategories() {
+        const names = [
+            ...categoriesResponse.map(category => category.nome),
+            ...organizations.map(store => store.categoria).filter(Boolean)
+        ];
+        return [...new Set(names.filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    }
+
+    function renderCategoryButtons() {
+        const categories = getAvailableCategories();
+        categoryFilters.innerHTML = `
+            <button
+                class="category-btn ${selectedCategory === "todas" ? "active bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-600 border-slate-200"} px-5 py-2 rounded-full font-bold text-sm shadow-sm border hover:border-emerald-500 hover:text-emerald-500 transition-all whitespace-nowrap"
+                data-category="todas">
+                Todas as lojas
+            </button>
+            ${categories.map(category => `
+                <button
+                    class="category-btn ${normalizeTextKey(selectedCategory) === normalizeTextKey(category) ? "active bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-600 border-slate-200"} px-5 py-2 rounded-full font-bold text-sm shadow-sm border hover:border-emerald-500 hover:text-emerald-500 transition-all whitespace-nowrap"
+                    data-category="${escapeHTML(category)}">
+                    ${escapeHTML(category)}
+                </button>
+            `).join("")}
+        `;
+    }
+
+    function renderStoreCard(store) {
+        const category = store.categoria || "Sem categoria";
+        const imageUrl = getStoreImageUrl(store);
+
+        return `
+            <article class="store-card bg-white rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col h-full">
+                <div class="aspect-square relative overflow-hidden bg-slate-100">
+                    <img class="w-full h-full object-cover" alt="${escapeHTML(store.nome)}" src="${escapeHTML(imageUrl)}" />
+                </div>
+                <div class="p-4 flex flex-col flex-grow">
+                    <div class="flex items-start justify-between gap-3 mb-2">
+                        <h3 class="text-lg font-extrabold text-slate-900">${escapeHTML(store.nome)}</h3>
+                        <span class="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">
+                            ${escapeHTML(category)}
+                        </span>
+                    </div>
+                    <p class="text-xs font-semibold text-slate-500 mb-4 flex items-start gap-1 flex-grow">
+                        <span class="material-symbols-outlined text-sm">location_on</span>
+                        <span>${escapeHTML(buildStoreAddressLabel(store))}</span>
+                    </p>
+                    <div class="mt-auto grid grid-cols-2 gap-2">
+                        <a href="loja.html?loja=${encodeURIComponent(store.slug_loja)}"
+                            class="block w-full py-2 bg-slate-100 text-slate-900 rounded-lg text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all text-center">
+                            Visitar loja
+                        </a>
+                        <a href="mapa.html?loja=${encodeURIComponent(store.slug_loja)}"
+                            class="block w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all text-center">
+                            Ver mapa
+                        </a>
+                    </div>
+                </div>
+            </article>
+        `;
+    }
 
     function filterStores() {
         const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : "";
-        let visibleCount = 0;
-
-        storeCards.forEach(card => {
-            const name = card.dataset.name ? card.dataset.name.toLowerCase() : "";
-            const category = card.dataset.category || "";
-
-            const matchesSearch = name.includes(searchTerm);
-            const matchesCategory = selectedCategory === "todas" || selectedCategory === category;
-
-            if (matchesSearch && matchesCategory) {
-                card.classList.remove("hidden");
-                visibleCount++;
-            } else {
-                card.classList.add("hidden");
-            }
+        const filteredStores = organizations.filter(store => {
+            const text = `${store.nome} ${store.categoria || ""} ${store.localizacao || ""} ${store.cep || ""}`.toLowerCase();
+            const matchesSearch = text.includes(searchTerm);
+            const matchesCategory = selectedCategory === "todas"
+                || normalizeTextKey(store.categoria) === normalizeTextKey(selectedCategory);
+            return matchesSearch && matchesCategory;
         });
 
-        if (!emptyMessage) return;
+        storesGrid.innerHTML = filteredStores.map(renderStoreCard).join("");
 
-        if (visibleCount === 0) {
+        if (!emptyMessage) return;
+        if (filteredStores.length === 0) {
             emptyMessage.classList.remove("hidden");
         } else {
             emptyMessage.classList.add("hidden");
@@ -867,26 +1184,71 @@ function setupHomePage() {
         searchInput.addEventListener("input", filterStores);
     }
 
-    categoryButtons.forEach(button => {
-        button.addEventListener("click", () => {
-            selectedCategory = button.dataset.category;
-
-            categoryButtons.forEach(btn => {
-                btn.classList.remove("active", "bg-emerald-600", "text-white", "border-emerald-600");
-                btn.classList.add("bg-white", "text-slate-600", "border-slate-200");
-            });
-
-            button.classList.add("active", "bg-emerald-600", "text-white", "border-emerald-600");
-            button.classList.remove("bg-white", "text-slate-600", "border-slate-200");
-
-            filterStores();
-        });
+    categoryFilters.addEventListener("click", event => {
+        const button = event.target.closest("[data-category]");
+        if (!button) return;
+        selectedCategory = button.dataset.category;
+        renderCategoryButtons();
+        filterStores();
     });
+
+    renderCategoryButtons();
+    filterStores();
 }
 
 // ===============================
 // Login - login.html
 // ===============================
+
+async function mergeGuestCartIntoBackend(session) {
+    // Ao logar/cadastrar, leva o carrinho que o visitante montou (localStorage)
+    // para o carrinho do usuario no backend, para nao perder os itens.
+    if (!session || session.role !== "cliente") return;
+
+    let guestCart = [];
+    try {
+        guestCart = JSON.parse(localStorage.getItem(STORAGE_KEYS.cart) || "[]");
+    } catch (e) {
+        guestCart = [];
+    }
+    if (!Array.isArray(guestCart) || guestCart.length === 0) return;
+
+    // Quantidades ja existentes no backend, para somar em vez de sobrescrever
+    const backendQty = {};
+    try {
+        const response = await fetch(`${API_BASE}/carrinho?email=${encodeURIComponent(session.email)}`);
+        if (response.ok) {
+            const data = await response.json();
+            (data || []).forEach(item => {
+                const id = item.id ?? item.produto_id;
+                if (id) backendQty[id] = Number(item.quantidade ?? item.quantity ?? 0);
+            });
+        }
+    } catch (e) {
+        console.error(e);
+    }
+
+    for (const item of guestCart) {
+        const id = item.id ?? item.produto_id;
+        const qty = Number(item.quantity ?? item.quantidade ?? 1);
+        if (!id || qty <= 0) continue;
+
+        const novaQtd = (backendQty[id] || 0) + qty;
+        try {
+            await fetch(`${API_BASE}/carrinho`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ usuario_email: session.email, produto_id: id, quantidade: novaQtd })
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // Visitante migrado: limpa o carrinho local para evitar duplicar
+    localStorage.removeItem(STORAGE_KEYS.cart);
+    await updateCartCount();
+}
 
 function setupLoginPage() {
     const loginForm = document.getElementById("loginForm");
@@ -945,7 +1307,8 @@ function setupLoginPage() {
 
             const session = await response.json();
             saveSession(session);
-            
+            await mergeGuestCartIntoBackend(session);
+
             if (nextPage) {
                 window.location.href = nextPage;
                 return;
@@ -1002,6 +1365,7 @@ async function setupRegisterPage() {
 
             const session = await response.json();
             saveSession(session);
+            await mergeGuestCartIntoBackend(session);
             window.location.href = nextPage || "carrinho.html";
         } catch (e) {
             showMessage("Erro ao conectar ao servidor de cadastro.");
@@ -1680,6 +2044,11 @@ async function updateDashboardMetrics() {
 
 async function setupCadastroPage() {
     const form = document.getElementById("itemForm");
+    const categoryModalElement = document.getElementById("categoryModal");
+    const categoryForm = document.getElementById("categoryForm");
+    const openCategoryModalButton = document.getElementById("openCategoryModal");
+    const newCategoryName = document.getElementById("newCategoryName");
+    const productCategoryList = document.getElementById("productCategoryList");
 
     if (!form) return;
 
@@ -1705,6 +2074,59 @@ async function setupCadastroPage() {
         featured: document.getElementById("itemFeatured")
     };
 
+    const categoryModal = categoryModalElement && window.bootstrap
+        ? new window.bootstrap.Modal(categoryModalElement)
+        : null;
+
+    async function loadProductCategories(selectedValue = "") {
+        const categories = await getCategorias("produto");
+        fillCategorySelect(fields.category, categories, {
+            placeholder: "Selecione uma categoria",
+            selectedValue: selectedValue || editingItem?.categoria || ""
+        });
+    }
+
+    async function renderProductCategoryManager() {
+        if (!productCategoryList) return;
+
+        const categories = await getCategorias("produto");
+        if (categories.length === 0) {
+            productCategoryList.innerHTML = `<div class="list-group-item text-muted small">Nenhuma categoria cadastrada.</div>`;
+            return;
+        }
+
+        productCategoryList.innerHTML = categories.map(category => `
+            <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <div>
+                    <strong>${escapeHTML(category.nome)}</strong>
+                    <div class="text-muted small">Criada em ${formatDate(category.data_criacao)}</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-edit-product-category="${category.id}" data-category-name="${escapeHTML(category.nome)}">
+                    Renomear
+                </button>
+            </div>
+        `).join("");
+
+        productCategoryList.querySelectorAll("[data-edit-product-category]").forEach(button => {
+            button.addEventListener("click", async () => {
+                const currentName = button.dataset.categoryName || "";
+                const nextName = window.prompt("Digite o novo nome da categoria:", currentName);
+                if (!nextName || nextName.trim() === currentName) return;
+
+                try {
+                    const updated = await updateCategoria(button.dataset.editProductCategory, "produto", nextName.trim());
+                    const selectedValue = fields.category?.value === currentName ? updated.nome : fields.category?.value;
+                    await loadProductCategories(selectedValue || "");
+                    await renderProductCategoryManager();
+                    setupPreview(fields);
+                    showMessage("Categoria atualizada com sucesso.", "success");
+                } catch (e) {
+                    showMessage(e.message || "Nao foi possivel atualizar a categoria.", "error");
+                }
+            });
+        });
+    }
+
     let editingItem = null;
     if (editId) {
         try {
@@ -1726,7 +2148,6 @@ async function setupCadastroPage() {
 
         if (fields.id) fields.id.value = editingItem.id;
         if (fields.name) fields.name.value = editingItem.nome;
-        if (fields.category) fields.category.value = editingItem.categoria;
         if (fields.description) fields.description.value = editingItem.descricao;
         if (fields.price) fields.price.value = editingItem.preco;
         if (fields.quantity) fields.quantity.value = editingItem.quantidade;
@@ -1741,19 +2162,55 @@ async function setupCadastroPage() {
         }
     }
 
+    await loadProductCategories(editingItem?.categoria || "");
+    await renderProductCategoryManager();
+
     setupPreview(fields);
 
     const clearButton = document.getElementById("clearForm");
 
     if (clearButton) {
-        clearButton.addEventListener("click", () => {
+        clearButton.addEventListener("click", async () => {
             form.reset();
 
             if (fields.id) {
                 fields.id.value = "";
             }
 
+            await loadProductCategories();
+
             setupPreview(fields);
+        });
+    }
+
+    if (openCategoryModalButton) {
+        openCategoryModalButton.addEventListener("click", async () => {
+            if (newCategoryName) newCategoryName.value = "";
+            await renderProductCategoryManager();
+            if (categoryModal) categoryModal.show();
+        });
+    }
+
+    if (categoryForm) {
+        categoryForm.addEventListener("submit", async event => {
+            event.preventDefault();
+            const categoryName = newCategoryName?.value.trim();
+
+            if (!categoryName) {
+                showMessage("Digite o nome da nova categoria.", "warning");
+                return;
+            }
+
+            try {
+                const created = await createCategoria("produto", categoryName);
+                await loadProductCategories(created.nome);
+                await renderProductCategoryManager();
+                categoryForm.reset();
+                setupPreview(fields);
+                showMessage("Categoria criada com sucesso.", "success");
+            } catch (e) {
+                showMessage(e.message || "Nao foi possivel criar a categoria.", "error");
+            }
         });
     }
 
@@ -1764,6 +2221,12 @@ async function setupCadastroPage() {
 
         if (!name) {
             showMessage("Digite o nome do item.");
+            return;
+        }
+
+        const selectedCategory = fields.category?.value.trim();
+        if (!selectedCategory) {
+            showMessage("Selecione uma categoria para o produto.", "warning");
             return;
         }
 
@@ -1785,7 +2248,7 @@ async function setupCadastroPage() {
             slug_dono,
             nome_loja,
             nome: name,
-            categoria: fields.category?.value || "Produto",
+            categoria: selectedCategory,
             descricao: fields.description?.value.trim() || "",
             preco: Number(fields.price?.value || 0),
             quantidade: quantity,
@@ -1941,6 +2404,11 @@ async function renderAdmin() {
     const exportButton = document.getElementById("exportOrganizations");
     const storeForm = document.getElementById("storeForm");
     const storeModalElement = document.getElementById("storeModal");
+    const storeCategoryModalElement = document.getElementById("storeCategoryModal");
+    const storeCategoryForm = document.getElementById("storeCategoryForm");
+    const openStoreCategoryModalButton = document.getElementById("openStoreCategoryModal");
+    const newStoreCategoryName = document.getElementById("newStoreCategoryName");
+    const storeCategoryList = document.getElementById("storeCategoryList");
     const storeModalTitle = document.getElementById("storeModalTitle");
     const storeSubmitButton = document.getElementById("storeSubmitButton");
     const tableHeadRow = document.querySelector("#adminTable")?.closest("table")?.querySelector("thead tr");
@@ -1952,6 +2420,8 @@ async function renderAdmin() {
         name: document.getElementById("storeName"),
         category: document.getElementById("storeCategory"),
         location: document.getElementById("storeLocation"),
+        cep: document.getElementById("storeCep"),
+        image: document.getElementById("storeImage"),
         ownerName: document.getElementById("storeOwnerName"),
         ownerEmail: document.getElementById("storeOwnerEmail"),
         ownerPassword: document.getElementById("storeOwnerPassword"),
@@ -1962,16 +2432,70 @@ async function renderAdmin() {
     const storeModal = storeModalElement && window.bootstrap
         ? new window.bootstrap.Modal(storeModalElement)
         : null;
+    const storeCategoryModal = storeCategoryModalElement && window.bootstrap
+        ? new window.bootstrap.Modal(storeCategoryModalElement)
+        : null;
 
     let organizationMap = new Map();
 
-    function openStoreForm(store = null) {
+    async function loadStoreCategories(selectedValue = "") {
+        const categories = await getCategorias("loja");
+        fillCategorySelect(storeFields.category, categories, {
+            placeholder: "Selecione uma categoria",
+            selectedValue
+        });
+    }
+
+    async function renderStoreCategoryManager() {
+        if (!storeCategoryList) return;
+
+        const categories = await getCategorias("loja");
+        if (categories.length === 0) {
+            storeCategoryList.innerHTML = `<div class="list-group-item text-muted small">Nenhuma categoria cadastrada.</div>`;
+            return;
+        }
+
+        storeCategoryList.innerHTML = categories.map(category => `
+            <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <div>
+                    <strong>${escapeHTML(category.nome)}</strong>
+                    <div class="text-muted small">Criada em ${formatDate(category.data_criacao)}</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-edit-store-category="${category.id}" data-category-name="${escapeHTML(category.nome)}">
+                    Renomear
+                </button>
+            </div>
+        `).join("");
+
+        storeCategoryList.querySelectorAll("[data-edit-store-category]").forEach(button => {
+            button.addEventListener("click", async () => {
+                const currentName = button.dataset.categoryName || "";
+                const nextName = window.prompt("Digite o novo nome da categoria da loja:", currentName);
+                if (!nextName || nextName.trim() === currentName) return;
+
+                try {
+                    const updated = await updateCategoria(button.dataset.editStoreCategory, "loja", nextName.trim());
+                    const selectedValue = storeFields.category?.value === currentName ? updated.nome : storeFields.category?.value;
+                    await loadStoreCategories(selectedValue || "");
+                    await renderStoreCategoryManager();
+                    await render();
+                    showMessage("Categoria da loja atualizada com sucesso.", "success");
+                } catch (e) {
+                    showMessage(e.message || "Nao foi possivel atualizar a categoria.", "error");
+                }
+            });
+        });
+    }
+
+    async function openStoreForm(store = null) {
         if (!storeForm) return;
 
         if (storeFields.id) storeFields.id.value = store?.id || "";
         if (storeFields.name) storeFields.name.value = store?.nome || "";
-        if (storeFields.category) storeFields.category.value = store?.categoria || "";
+        await loadStoreCategories(store?.categoria || "");
         if (storeFields.location) storeFields.location.value = store?.localizacao || "";
+        if (storeFields.cep) storeFields.cep.value = store?.cep || "";
+        if (storeFields.image) storeFields.image.value = store?.imagem || "";
         if (storeFields.ownerName) storeFields.ownerName.value = store?.nome_proprietario || "";
         if (storeFields.ownerEmail) storeFields.ownerEmail.value = store?.email_proprietario || "";
         if (storeFields.ownerPassword) storeFields.ownerPassword.value = "";
@@ -2152,7 +2676,65 @@ async function renderAdmin() {
     }
 
     if (addButton) {
-        addButton.onclick = () => openStoreForm();
+        addButton.onclick = () => {
+            openStoreForm();
+        };
+    }
+
+    if (openStoreCategoryModalButton) {
+        openStoreCategoryModalButton.onclick = async () => {
+            if (newStoreCategoryName) newStoreCategoryName.value = "";
+            await renderStoreCategoryManager();
+            if (storeCategoryModal) storeCategoryModal.show();
+        };
+    }
+
+    if (storeFields.cep) {
+        storeFields.cep.addEventListener("blur", async () => {
+            const rawCep = storeFields.cep.value.replace(/\D/g, "");
+            if (rawCep.length !== 8) return;
+
+            try {
+                const response = await fetch(`https://viacep.com.br/ws/${rawCep}/json/`);
+                const data = await response.json();
+                if (data.erro) {
+                    showMessage("CEP nao encontrado. Confira o numero informado.", "warning");
+                    return;
+                }
+
+                const address = [data.logradouro, data.bairro, `${data.localidade} - ${data.uf}`]
+                    .filter(Boolean)
+                    .join(", ");
+
+                if (storeFields.location && address) {
+                    storeFields.location.value = address;
+                }
+            } catch (e) {
+                console.error(e);
+                showMessage("Nao foi possivel consultar o CEP agora.", "warning");
+            }
+        });
+    }
+
+    if (storeCategoryForm) {
+        storeCategoryForm.onsubmit = async event => {
+            event.preventDefault();
+            const categoryName = newStoreCategoryName?.value.trim();
+            if (!categoryName) {
+                showMessage("Digite o nome da categoria da loja.", "warning");
+                return;
+            }
+
+            try {
+                const created = await createCategoria("loja", categoryName);
+                await loadStoreCategories(created.nome);
+                await renderStoreCategoryManager();
+                storeCategoryForm.reset();
+                showMessage("Categoria da loja criada com sucesso.", "success");
+            } catch (e) {
+                showMessage(e.message || "Nao foi possivel criar a categoria.", "error");
+            }
+        };
     }
 
     if (storeForm) {
@@ -2164,6 +2746,8 @@ async function renderAdmin() {
                 nome: storeFields.name?.value.trim(),
                 categoria: storeFields.category?.value.trim(),
                 localizacao: storeFields.location?.value.trim(),
+                cep: storeFields.cep?.value.trim() || null,
+                imagem: storeFields.image?.value.trim() || null,
                 nome_proprietario: storeFields.ownerName?.value.trim(),
                 email_proprietario: storeFields.ownerEmail?.value.trim(),
                 senha_proprietario: storeFields.ownerPassword?.value.trim() || null,
@@ -2199,6 +2783,8 @@ async function renderAdmin() {
 
                 showMessage(isEditing ? "Loja atualizada com sucesso." : "Loja cadastrada com sucesso.", "success");
                 storeForm.reset();
+                await loadStoreCategories();
+                await renderStoreCategoryManager();
                 if (storeModal) {
                     storeModal.hide();
                 }
@@ -2217,6 +2803,8 @@ async function renderAdmin() {
     }
 
     await render();
+    await loadStoreCategories();
+    await renderStoreCategoryManager();
     await renderCupons();
 }
 
@@ -2443,9 +3031,22 @@ async function imprimirCupom() {
                 </tbody>
             </table>
             <div class="divider"></div>
+            <div>
+                <span style="float: left;">Subtotal:</span>
+                <span style="float: right;">${formatCurrency(subtotal)}</span>
+                <div style="clear: both;"></div>
+            </div>
+            ${discount > 0 ? `
+            <div>
+                <span style="float: left;">Desconto${activeCoupon?.codigo ? ` (${activeCoupon.codigo})` : ""}:</span>
+                <span style="float: right;">- ${formatCurrency(discount)}</span>
+                <div style="clear: both;"></div>
+            </div>
+            ` : ""}
+            <div class="divider"></div>
             <div class="total">
                 <span style="float: left;">TOTAL:</span>
-                <span style="float: right;">${formatCurrency(subtotal)}</span>
+                <span style="float: right;">${formatCurrency(totalComDesconto)}</span>
                 <div style="clear: both;"></div>
             </div>
             <div class="divider"></div>
