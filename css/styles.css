@@ -247,6 +247,31 @@ img {
     padding-top: 18px;
 }
 
+.sidebar-user {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 2px 14px;
+}
+
+.sidebar-user small {
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
+.sidebar-user strong {
+    font-size: 0.98rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.sidebar-user span {
+    color: var(--primary-dark);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
 .main-content {
     flex: 1;
     margin-left: 270px;

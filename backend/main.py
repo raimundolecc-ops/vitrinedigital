@@ -115,16 +115,155 @@ def can_manage_order(conn, pedido_id: int, user_email: str) -> bool:
         )
         return cur.fetchone() is not None
 
+def ensure_lojas_schema(conn) -> None:
+    with conn.cursor() as cur:
+        cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS nome_proprietario VARCHAR(255)")
+        cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS email_proprietario VARCHAR(255)")
+        cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS data_nascimento_proprietario DATE")
+    conn.commit()
+
+def normalize_store_slug(value: str) -> str:
+    slug = value.lower().strip()
+    replacements = {
+        "a": ["á", "à", "ã", "â"],
+        "e": ["é", "ê"],
+        "i": ["í"],
+        "o": ["ó", "õ", "ô"],
+        "u": ["ú"],
+        "c": ["ç"]
+    }
+
+    for replacement, chars in replacements.items():
+        for char in chars:
+            slug = slug.replace(char, replacement)
+
+    allowed = []
+    for char in slug:
+        if char.isalnum():
+            allowed.append(char)
+        elif char in {" ", "-", "_"}:
+            allowed.append("-")
+
+    normalized = "".join(allowed).strip("-")
+    while "--" in normalized:
+        normalized = normalized.replace("--", "-")
+    return normalized or "loja"
+
+def build_unique_store_slug(cur, store_name: str, loja_id: Optional[str] = None) -> str:
+    import time
+
+    base_slug = normalize_store_slug(store_name)
+    slug = base_slug
+    suffix = 1
+
+    while True:
+        if loja_id:
+            cur.execute(
+                "SELECT id FROM lojas WHERE slug_loja = %s AND id <> %s",
+                (slug, loja_id)
+            )
+        else:
+            cur.execute("SELECT id FROM lojas WHERE slug_loja = %s", (slug,))
+
+        if not cur.fetchone():
+            return slug
+
+        slug = f"{base_slug}-{suffix}-{int(time.time() % 1000)}"
+        suffix += 1
+
+def sync_merchant_user(
+    cur,
+    *,
+    slug_loja: str,
+    nome_proprietario: str,
+    email_proprietario: str,
+    senha_proprietario: Optional[str],
+    current_email: Optional[str] = None
+) -> None:
+    lookup_email = current_email or email_proprietario
+
+    try:
+        cur.execute(
+            "SELECT email, funcao FROM usuarios WHERE email = %s",
+            (lookup_email,)
+        )
+        existing_user = cur.fetchone()
+
+        if existing_user:
+            if existing_user["funcao"] != "comerciante":
+                raise HTTPException(status_code=409, detail="O e-mail informado ja esta vinculado a outro tipo de usuario.")
+
+            if email_proprietario != lookup_email:
+                cur.execute("SELECT email FROM usuarios WHERE email = %s", (email_proprietario,))
+                conflict = cur.fetchone()
+                if conflict:
+                    raise HTTPException(status_code=409, detail="O novo e-mail do lojista ja esta em uso.")
+
+            if senha_proprietario:
+                cur.execute(
+                    """UPDATE usuarios
+                       SET email = %s, nome = %s, senha = %s, slug_loja = %s
+                       WHERE email = %s AND funcao = 'comerciante'""",
+                    (email_proprietario, nome_proprietario, senha_proprietario, slug_loja, lookup_email)
+                )
+            else:
+                cur.execute(
+                    """UPDATE usuarios
+                       SET email = %s, nome = %s, slug_loja = %s
+                       WHERE email = %s AND funcao = 'comerciante'""",
+                    (email_proprietario, nome_proprietario, slug_loja, lookup_email)
+                )
+            return
+
+        cur.execute("SELECT email FROM usuarios WHERE email = %s", (email_proprietario,))
+        if cur.fetchone():
+            raise HTTPException(status_code=409, detail="O e-mail do lojista ja esta em uso por outro usuario.")
+
+        if not senha_proprietario:
+            raise HTTPException(status_code=400, detail="Informe uma senha para criar o acesso do lojista.")
+
+        cur.execute(
+            """INSERT INTO usuarios (email, senha, nome, funcao, slug_loja)
+               VALUES (%s, %s, %s, 'comerciante', %s)""",
+            (email_proprietario, senha_proprietario, nome_proprietario, slug_loja)
+        )
+    except psycopg.Error as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Nao foi possivel atualizar o acesso do lojista. Verifique e-mail, senha e vinculacoes existentes."
+        ) from exc
+
 class LojaBase(BaseModel):
     id: str
     nome: str
-    categoria: str
+    categoria: Optional[str] = None
     localizacao: Optional[str] = None
     status: str
     slug_loja: str
+    nome_proprietario: Optional[str] = None
+    email_proprietario: Optional[str] = None
+    data_nascimento_proprietario: Optional[str] = None
+    data_criacao: Optional[str] = None
 
 class LojaCreate(BaseModel):
     nome: str
+    categoria: str
+    localizacao: Optional[str] = None
+    nome_proprietario: str
+    email_proprietario: str
+    data_nascimento_proprietario: str
+    senha_proprietario: str
+    status: str = "Pendente"
+
+class LojaUpdate(BaseModel):
+    nome: str
+    categoria: str
+    localizacao: Optional[str] = None
+    nome_proprietario: str
+    email_proprietario: str
+    data_nascimento_proprietario: str
+    senha_proprietario: Optional[str] = None
+    status: str
 
 class ProdutoBase(BaseModel):
     id: str
@@ -578,21 +717,78 @@ def get_pedido(pedido_id: int, conn = Depends(get_db_connection)):
 
 @app.get("/api/lojas", response_model=List[LojaBase])
 def get_lojas(conn = Depends(get_db_connection)):
+    ensure_lojas_schema(conn)
     with conn.cursor() as cur:
-        cur.execute("SELECT id, nome, categoria, localizacao, status, slug_loja FROM lojas ORDER BY nome")
-        return cur.fetchall()
+        cur.execute(
+            """SELECT id, nome, categoria, localizacao, status, slug_loja,
+                      nome_proprietario, email_proprietario, data_nascimento_proprietario, data_criacao
+               FROM lojas
+               ORDER BY nome"""
+        )
+        lojas = cur.fetchall()
+        for loja in lojas:
+            if loja.get("data_nascimento_proprietario"):
+                loja["data_nascimento_proprietario"] = loja["data_nascimento_proprietario"].isoformat()
+            if loja.get("data_criacao"):
+                loja["data_criacao"] = loja["data_criacao"].isoformat()
+        return lojas
 
 @app.post("/api/lojas", response_model=LojaBase)
 def create_loja(req: LojaCreate, conn = Depends(get_db_connection)):
     import time
+    ensure_lojas_schema(conn)
     id_org = f"ORG-{int(time.time() * 1000)}"
-    slug = req.nome.lower().strip().replace(" ", "-")
+    with conn.cursor() as cur:
+        slug = build_unique_store_slug(cur, req.nome)
+        cur.execute("SELECT id FROM lojas WHERE email_proprietario = %s", (req.email_proprietario,))
+        if cur.fetchone():
+            raise HTTPException(status_code=409, detail="Ja existe uma loja vinculada a este e-mail de proprietario.")
+
+        sync_merchant_user(
+            cur,
+            slug_loja=slug,
+            nome_proprietario=req.nome_proprietario,
+            email_proprietario=req.email_proprietario,
+            senha_proprietario=req.senha_proprietario
+        )
+
+        cur.execute(
+            """INSERT INTO lojas (
+                    id, nome, categoria, localizacao, status, slug_loja,
+                    nome_proprietario, email_proprietario, data_nascimento_proprietario
+               )
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+               RETURNING id, nome, categoria, localizacao, status, slug_loja,
+                         nome_proprietario, email_proprietario, data_nascimento_proprietario, data_criacao""",
+            (
+                id_org,
+                req.nome,
+                req.categoria,
+                req.localizacao or "Nao informado",
+                req.status or "Pendente",
+                slug,
+                req.nome_proprietario,
+                req.email_proprietario,
+                req.data_nascimento_proprietario
+            )
+        )
+        new_loja = cur.fetchone()
+        conn.commit()
+
+        if new_loja.get("data_nascimento_proprietario"):
+            new_loja["data_nascimento_proprietario"] = new_loja["data_nascimento_proprietario"].isoformat()
+        if new_loja.get("data_criacao"):
+            new_loja["data_criacao"] = new_loja["data_criacao"].isoformat()
+        return new_loja
+
+    slug = None
     
     with conn.cursor() as cur:
         # Verificar se o slug já existe
-        cur.execute("SELECT id FROM lojas WHERE slug_loja = %s", (slug,))
+        slug = build_unique_store_slug(cur, req.nome)
+        cur.execute("SELECT id FROM lojas WHERE email_proprietario = %s", (req.email_proprietario,))
         if cur.fetchone():
-            slug = f"{slug}-{int(time.time() % 1000)}"
+            raise HTTPException(status_code=409, detail="Ja existe uma loja vinculada a este e-mail de proprietario.")
             
         cur.execute(
             """INSERT INTO lojas (id, nome, categoria, localizacao, status, slug_loja) 
@@ -604,8 +800,78 @@ def create_loja(req: LojaCreate, conn = Depends(get_db_connection)):
         conn.commit()
         return new_loja
 
+@app.put("/api/lojas/{loja_id}", response_model=LojaBase)
+def update_loja(loja_id: str, req: LojaUpdate, conn = Depends(get_db_connection)):
+    ensure_lojas_schema(conn)
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT id, slug_loja, nome, email_proprietario FROM lojas WHERE id = %s", (loja_id,))
+        existing_loja = cur.fetchone()
+        if not existing_loja:
+            raise HTTPException(status_code=404, detail="Loja nao encontrada")
+
+        cur.execute(
+            "SELECT id FROM lojas WHERE email_proprietario = %s AND id <> %s",
+            (req.email_proprietario, loja_id)
+        )
+        if cur.fetchone():
+            raise HTTPException(status_code=409, detail="Ja existe outra loja vinculada a este e-mail de proprietario.")
+
+        slug = existing_loja["slug_loja"] or build_unique_store_slug(cur, req.nome, loja_id)
+
+        sync_merchant_user(
+            cur,
+            slug_loja=slug,
+            nome_proprietario=req.nome_proprietario,
+            email_proprietario=req.email_proprietario,
+            senha_proprietario=req.senha_proprietario,
+            current_email=existing_loja.get("email_proprietario")
+        )
+
+        cur.execute(
+            """UPDATE lojas
+               SET nome = %s,
+                   categoria = %s,
+                   localizacao = %s,
+                   status = %s,
+                   slug_loja = %s,
+                   nome_proprietario = %s,
+                   email_proprietario = %s,
+                   data_nascimento_proprietario = %s
+               WHERE id = %s
+               RETURNING id, nome, categoria, localizacao, status, slug_loja,
+                         nome_proprietario, email_proprietario, data_nascimento_proprietario, data_criacao""",
+            (
+                req.nome,
+                req.categoria,
+                req.localizacao or "Nao informado",
+                req.status,
+                slug,
+                req.nome_proprietario,
+                req.email_proprietario,
+                req.data_nascimento_proprietario,
+                loja_id
+            )
+        )
+        updated_loja = cur.fetchone()
+
+        if existing_loja["nome"] != req.nome:
+            cur.execute(
+                "UPDATE produtos SET nome_loja = %s WHERE slug_dono = %s",
+                (req.nome, slug)
+            )
+
+        conn.commit()
+
+        if updated_loja.get("data_nascimento_proprietario"):
+            updated_loja["data_nascimento_proprietario"] = updated_loja["data_nascimento_proprietario"].isoformat()
+        if updated_loja.get("data_criacao"):
+            updated_loja["data_criacao"] = updated_loja["data_criacao"].isoformat()
+        return updated_loja
+
 @app.put("/api/lojas/{loja_id}/status", response_model=LojaBase)
 def toggle_loja_status(loja_id: str, conn = Depends(get_db_connection)):
+    ensure_lojas_schema(conn)
     with conn.cursor() as cur:
         cur.execute("SELECT status FROM lojas WHERE id = %s", (loja_id,))
         loja = cur.fetchone()
@@ -614,15 +880,24 @@ def toggle_loja_status(loja_id: str, conn = Depends(get_db_connection)):
             
         new_status = "Pendente" if loja["status"] == "Ativo" else "Ativo"
         cur.execute(
-            "UPDATE lojas SET status = %s WHERE id = %s RETURNING id, nome, categoria, localizacao, status, slug_loja",
+            """UPDATE lojas
+               SET status = %s
+               WHERE id = %s
+               RETURNING id, nome, categoria, localizacao, status, slug_loja,
+                         nome_proprietario, email_proprietario, data_nascimento_proprietario, data_criacao""",
             (new_status, loja_id)
         )
         updated_loja = cur.fetchone()
         conn.commit()
+        if updated_loja.get("data_nascimento_proprietario"):
+            updated_loja["data_nascimento_proprietario"] = updated_loja["data_nascimento_proprietario"].isoformat()
+        if updated_loja.get("data_criacao"):
+            updated_loja["data_criacao"] = updated_loja["data_criacao"].isoformat()
         return updated_loja
 
 @app.delete("/api/lojas/{loja_id}")
 def delete_loja(loja_id: str, conn = Depends(get_db_connection)):
+    ensure_lojas_schema(conn)
     with conn.cursor() as cur:
         cur.execute("DELETE FROM lojas WHERE id = %s RETURNING id", (loja_id,))
         if not cur.fetchone():

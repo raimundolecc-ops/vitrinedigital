@@ -1939,12 +1939,76 @@ async function renderAdmin() {
     const table = document.getElementById("adminTable");
     const addButton = document.getElementById("addOrganization");
     const exportButton = document.getElementById("exportOrganizations");
+    const storeForm = document.getElementById("storeForm");
+    const storeModalElement = document.getElementById("storeModal");
+    const storeModalTitle = document.getElementById("storeModalTitle");
+    const storeSubmitButton = document.getElementById("storeSubmitButton");
+    const tableHeadRow = document.querySelector("#adminTable")?.closest("table")?.querySelector("thead tr");
 
     if (!table) return;
+
+    const storeFields = {
+        id: document.getElementById("storeId"),
+        name: document.getElementById("storeName"),
+        category: document.getElementById("storeCategory"),
+        location: document.getElementById("storeLocation"),
+        ownerName: document.getElementById("storeOwnerName"),
+        ownerEmail: document.getElementById("storeOwnerEmail"),
+        ownerPassword: document.getElementById("storeOwnerPassword"),
+        ownerBirthDate: document.getElementById("storeOwnerBirthDate"),
+        status: document.getElementById("storeStatus")
+    };
+
+    const storeModal = storeModalElement && window.bootstrap
+        ? new window.bootstrap.Modal(storeModalElement)
+        : null;
+
+    let organizationMap = new Map();
+
+    function openStoreForm(store = null) {
+        if (!storeForm) return;
+
+        if (storeFields.id) storeFields.id.value = store?.id || "";
+        if (storeFields.name) storeFields.name.value = store?.nome || "";
+        if (storeFields.category) storeFields.category.value = store?.categoria || "";
+        if (storeFields.location) storeFields.location.value = store?.localizacao || "";
+        if (storeFields.ownerName) storeFields.ownerName.value = store?.nome_proprietario || "";
+        if (storeFields.ownerEmail) storeFields.ownerEmail.value = store?.email_proprietario || "";
+        if (storeFields.ownerPassword) storeFields.ownerPassword.value = "";
+        if (storeFields.ownerBirthDate) {
+            storeFields.ownerBirthDate.value = store?.data_nascimento_proprietario
+                ? String(store.data_nascimento_proprietario).split("T")[0]
+                : "";
+        }
+        if (storeFields.status) storeFields.status.value = store?.status || "Pendente";
+
+        if (storeModalTitle) {
+            storeModalTitle.textContent = store ? "Editar loja" : "Cadastrar loja";
+        }
+        if (storeSubmitButton) {
+            storeSubmitButton.textContent = store ? "Salvar alteracoes" : "Salvar loja";
+        }
+
+        if (storeModal) {
+            storeModal.show();
+        }
+    }
 
     async function render() {
         const organizations = await getOrganizations();
         const allItems = await getItems();
+        organizationMap = new Map(organizations.map(org => [org.id, org]));
+
+        if (tableHeadRow) {
+            tableHeadRow.innerHTML = `
+                <th>Loja</th>
+                <th>Proprietario</th>
+                <th>Contato</th>
+                <th>Status</th>
+                <th>Data</th>
+                <th class="text-end">Acoes</th>
+            `;
+        }
 
         const adminTotal = document.getElementById("adminTotal");
         const adminActive = document.getElementById("adminActive");
@@ -1994,12 +2058,20 @@ async function renderAdmin() {
                     <td>
                         <strong>${escapeHTML(org.nome)}</strong>
                         <br>
-                        <small class="text-muted">${escapeHTML(org.id)}</small>
+                        <small class="text-muted">${escapeHTML(org.categoria || "Sem categoria")} • ${escapeHTML(org.localizacao || "Nao informado")}</small>
                     </td>
 
-                    <td>${escapeHTML(org.categoria)}</td>
+                    <td>
+                        <strong>${escapeHTML(org.nome_proprietario || "Nao informado")}</strong>
+                        <br>
+                        <small class="text-muted">Nascimento: ${formatDate(org.data_nascimento_proprietario)}</small>
+                    </td>
 
-                    <td>${escapeHTML(org.localizacao)}</td>
+                    <td>
+                        <strong>${escapeHTML(org.email_proprietario || "-")}</strong>
+                        <br>
+                        <small class="text-muted">Slug: ${escapeHTML(org.slug_loja || "-")}</small>
+                    </td>
 
                     <td>
                         <span class="badge-status ${getStatusClass(org.status)}">
@@ -2010,6 +2082,10 @@ async function renderAdmin() {
                     <td>${formatDate(org.data_criacao)}</td>
 
                     <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary" data-edit-org="${escapeHTML(org.id)}">
+                            Editar
+                        </button>
+
                         <button class="btn btn-sm btn-outline-secondary" data-change-org="${escapeHTML(org.id)}">
                             Alterar status
                         </button>
@@ -2026,10 +2102,17 @@ async function renderAdmin() {
             table.innerHTML = createEmptyTableState({
                 colspan: 6,
                 icon: "storefront",
-                title: "Nenhuma unidade cadastrada",
-                description: "Cadastre a primeira loja ou unidade para comecar a administracao."
+                title: "Nenhuma loja cadastrada",
+                description: "Cadastre a primeira loja para comecar a administracao."
             });
         }
+
+        document.querySelectorAll("[data-edit-org]").forEach(button => {
+            button.addEventListener("click", () => {
+                const id = button.dataset.editOrg;
+                openStoreForm(organizationMap.get(id));
+            });
+        });
 
         document.querySelectorAll("[data-change-org]").forEach(button => {
             button.addEventListener("click", async () => {
@@ -2069,22 +2152,60 @@ async function renderAdmin() {
     }
 
     if (addButton) {
-        addButton.onclick = async () => {
-            const name = prompt("Nome da nova unidade:");
+        addButton.onclick = () => openStoreForm();
+    }
 
-            if (!name) return;
+    if (storeForm) {
+        storeForm.onsubmit = async event => {
+            event.preventDefault();
+
+            const id = storeFields.id?.value.trim();
+            const payload = {
+                nome: storeFields.name?.value.trim(),
+                categoria: storeFields.category?.value.trim(),
+                localizacao: storeFields.location?.value.trim(),
+                nome_proprietario: storeFields.ownerName?.value.trim(),
+                email_proprietario: storeFields.ownerEmail?.value.trim(),
+                senha_proprietario: storeFields.ownerPassword?.value.trim() || null,
+                data_nascimento_proprietario: storeFields.ownerBirthDate?.value,
+                status: storeFields.status?.value || "Pendente"
+            };
+
+            if (!payload.nome || !payload.categoria || !payload.localizacao || !payload.nome_proprietario || !payload.email_proprietario || !payload.data_nascimento_proprietario) {
+                showMessage("Preencha todos os campos obrigatorios da loja e do proprietario.", "warning");
+                return;
+            }
+
+            const isEditing = Boolean(id);
+            if (!isEditing && !payload.senha_proprietario) {
+                showMessage("Defina uma senha para criar o acesso do lojista.", "warning");
+                return;
+            }
+            const url = isEditing ? `${API_BASE}/lojas/${id}` : `${API_BASE}/lojas`;
+            const method = isEditing ? "PUT" : "POST";
 
             try {
-                const response = await fetch(`${API_BASE}/lojas`, {
-                    method: "POST",
+                const response = await fetch(url, {
+                    method,
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ nome: name })
+                    body: JSON.stringify(payload)
                 });
-                if (response.ok) {
-                    await render();
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    showMessage(error.detail || "Nao foi possivel salvar a loja.", "error");
+                    return;
                 }
+
+                showMessage(isEditing ? "Loja atualizada com sucesso." : "Loja cadastrada com sucesso.", "success");
+                storeForm.reset();
+                if (storeModal) {
+                    storeModal.hide();
+                }
+                await render();
             } catch (e) {
                 console.error(e);
+                showMessage("Erro ao conectar com o banco de dados.", "error");
             }
         };
     }

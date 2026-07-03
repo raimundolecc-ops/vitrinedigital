@@ -34,6 +34,9 @@ CREATE TABLE lojas (
     localizacao VARCHAR(255),
     status VARCHAR(50) DEFAULT 'Pendente',
     slug_loja VARCHAR(100) UNIQUE NOT NULL,
+    nome_proprietario VARCHAR(255),
+    email_proprietario VARCHAR(255),
+    data_nascimento_proprietario DATE,
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
