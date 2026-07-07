@@ -59,6 +59,8 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     name: str
+    role: Optional[str] = "cliente"
+    store_name: Optional[str] = None
 
 class UserPublic(BaseModel):
     email: str
@@ -486,6 +488,16 @@ def require_admin(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+def require_comerciante(user: dict = Depends(get_current_user)) -> dict:
+    """Exige um lojista. Produtos e pedidos pertencem ao comerciante, nao ao admin."""
+    if user.get("role") != "comerciante":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso permitido apenas para lojistas.",
+        )
+    return user
+
+
 # ==========================================
 # ENDPOINTS - AUTENTICAÇÃO
 # ==========================================
@@ -546,19 +558,50 @@ def get_me(user: dict = Depends(get_current_user), conn = Depends(get_db_connect
 
 @app.post("/api/auth/register", response_model=UserSession)
 def register(req: RegisterRequest, conn = Depends(get_db_connection)):
+    import time, datetime
+
+    # Auto-cadastro so e permitido para cliente ou comerciante (nunca admin).
+    role = (req.role or "cliente").strip().lower()
+    if role not in ("cliente", "comerciante"):
+        raise HTTPException(status_code=400, detail="Tipo de cadastro invalido.")
+
     with conn.cursor() as cur:
         cur.execute("SELECT email FROM usuarios WHERE email = %s", (req.email,))
         if cur.fetchone():
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado.")
 
-        cur.execute(
-            "INSERT INTO usuarios (email, senha, nome, funcao) VALUES (%s, %s, %s, 'cliente') RETURNING email, nome, funcao, slug_loja",
-            (req.email, hash_password(req.password), req.name)
-        )
+        if role == "comerciante":
+            ensure_lojas_schema(conn)
+            store_name = (req.store_name or "").strip()
+            if not store_name:
+                raise HTTPException(status_code=400, detail="Informe o nome da sua loja.")
+
+            slug = build_unique_store_slug(cur, store_name)
+            id_org = f"ORG-{int(time.time() * 1000)}"
+
+            # Cria a loja como "Pendente" (aguardando aprovacao do administrador).
+            cur.execute(
+                """INSERT INTO lojas (id, nome, categoria, localizacao, status, slug_loja,
+                        nome_proprietario, email_proprietario)
+                   VALUES (%s, %s, %s, %s, 'Pendente', %s, %s, %s)""",
+                (id_org, store_name, "Geral", "Nao informado", slug, req.name, req.email)
+            )
+            cur.execute(
+                """INSERT INTO usuarios (email, senha, nome, funcao, slug_loja)
+                   VALUES (%s, %s, %s, 'comerciante', %s)
+                   RETURNING email, nome, funcao, slug_loja""",
+                (req.email, hash_password(req.password), req.name, slug)
+            )
+        else:
+            cur.execute(
+                """INSERT INTO usuarios (email, senha, nome, funcao) VALUES (%s, %s, %s, 'cliente')
+                   RETURNING email, nome, funcao, slug_loja""",
+                (req.email, hash_password(req.password), req.name)
+            )
+
         user = cur.fetchone()
         conn.commit()
 
-        import datetime
         token = create_access_token(user["email"], user["funcao"])
         return UserSession(
             email=user["email"],
@@ -615,7 +658,7 @@ def get_categorias(tipo: Optional[str] = None, conn = Depends(get_db_connection)
         return categorias
 
 @app.post("/api/categorias", response_model=CategoriaBase)
-def create_categoria(req: CategoriaCreate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+def create_categoria(req: CategoriaCreate, conn = Depends(get_db_connection), _user: dict = Depends(require_admin)):
     ensure_categorias_schema(conn)
 
     nome = req.nome.strip()
@@ -640,7 +683,7 @@ def create_categoria(req: CategoriaCreate, conn = Depends(get_db_connection), _u
         return categoria
 
 @app.put("/api/categorias/{categoria_id}", response_model=CategoriaBase)
-def update_categoria(categoria_id: int, req: CategoriaUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+def update_categoria(categoria_id: int, req: CategoriaUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_admin)):
     ensure_categorias_schema(conn)
 
     nome = req.nome.strip()
@@ -926,7 +969,7 @@ def get_pedidos(email: Optional[str] = None, conn = Depends(get_db_connection)):
         return orders
 
 @app.put("/api/pedidos/{pedido_id}/status", response_model=OrderResponse)
-def update_pedido_status(pedido_id: int, req: OrderStatusUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+def update_pedido_status(pedido_id: int, req: OrderStatusUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_comerciante)):
     novo_status = ensure_valid_order_status(req.status)
 
     if not can_manage_order(conn, pedido_id, req.atualizado_por):
@@ -1201,7 +1244,7 @@ def get_produto(prod_id: str, conn = Depends(get_db_connection)):
         return prod
 
 @app.post("/api/produtos", response_model=ProdutoBase)
-def create_produto(prod: ProdutoCreate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+def create_produto(prod: ProdutoCreate, conn = Depends(get_db_connection), _user: dict = Depends(require_comerciante)):
     ensure_categorias_schema(conn)
     with conn.cursor() as cur:
         ensure_category_exists(cur, prod.categoria, "produto")
@@ -1218,7 +1261,7 @@ def create_produto(prod: ProdutoCreate, conn = Depends(get_db_connection), _user
         return new_prod
 
 @app.put("/api/produtos/{prod_id}", response_model=ProdutoBase)
-def update_produto(prod_id: str, prod: ProdutoUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+def update_produto(prod_id: str, prod: ProdutoUpdate, conn = Depends(get_db_connection), _user: dict = Depends(require_comerciante)):
     ensure_categorias_schema(conn)
     with conn.cursor() as cur:
         ensure_category_exists(cur, prod.categoria, "produto")
@@ -1238,7 +1281,7 @@ def update_produto(prod_id: str, prod: ProdutoUpdate, conn = Depends(get_db_conn
         return updated
 
 @app.delete("/api/produtos/{prod_id}")
-def delete_produto(prod_id: str, conn = Depends(get_db_connection), _user: dict = Depends(require_management)):
+def delete_produto(prod_id: str, conn = Depends(get_db_connection), _user: dict = Depends(require_comerciante)):
     with conn.cursor() as cur:
         cur.execute("DELETE FROM produtos WHERE id = %s RETURNING id", (prod_id,))
         if not cur.fetchone():

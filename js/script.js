@@ -557,6 +557,16 @@ async function updateOrderStatus(orderId, newStatus) {
 
 function protectPage() {
     const page = document.body.dataset.page;
+    const session = getSession();
+
+    // O administrador acessa APENAS a área administrativa (admin.html).
+    // Catálogo, produtos, cadastro e pedidos pertencem a cada lojista.
+    const blockedForAdmin = ["dashboard", "cadastro", "catalogo", "pedidos"];
+    if (session && session.role === "admin" && blockedForAdmin.includes(page)) {
+        showMessage("O administrador acessa apenas a área administrativa.", "warning");
+        window.location.href = "admin.html";
+        return;
+    }
 
     const publicPages = [
         "home",
@@ -575,21 +585,21 @@ function protectPage() {
 
     if (publicPages.includes(page)) return;
 
-    const session = getSession();
-
     if (!session) {
         window.location.href = "login.html";
         return;
     }
 
+    // Área administrativa: exclusiva do admin.
     if (page === "admin" && session.role !== "admin") {
         showMessage("Acesso permitido apenas para administradores.", "warning");
         window.location.href = "dashboard.html";
         return;
     }
 
-    if ((page === "dashboard" || page === "cadastro") && session.role !== "admin" && session.role !== "comerciante") {
-        showMessage("Acesso permitido apenas para comerciantes ou administradores.", "warning");
+    // Painel do lojista: exclusivo do comerciante (o admin já foi barrado acima).
+    if ((page === "dashboard" || page === "cadastro") && session.role !== "comerciante") {
+        showMessage("Acesso permitido apenas para comerciantes.", "warning");
         window.location.href = "login.html";
     }
 }
@@ -601,7 +611,31 @@ function protectPage() {
 async function setupGlobalLinks() {
     await updateCartCount();
     setupActiveMenu();
+    setupRoleNav();
     setupUserInfo();
+}
+
+function setupRoleNav() {
+    const session = getSession();
+    if (!session) return;
+
+    const hideNav = navValues => navValues.forEach(nav => {
+        document.querySelectorAll(`[data-nav="${nav}"]`).forEach(el => {
+            el.style.display = "none";
+        });
+    });
+
+    if (session.role === "admin") {
+        // Admin: só a área administrativa. Esconde produtos/catálogo/pedidos.
+        hideNav(["dashboard", "cadastro", "catalogo", "pedidos"]);
+        // O logo do painel aponta para dashboard; para o admin, leva à área dele.
+        document.querySelectorAll("a.brand").forEach(el => {
+            el.setAttribute("href", "admin.html");
+        });
+    } else if (session.role === "comerciante") {
+        // Lojista: esconde o link da Administração.
+        hideNav(["admin"]);
+    }
 }
 
 function setupMobileMenu() {
@@ -1385,12 +1419,31 @@ function setupLoginPage() {
         selectedRole = activeRoleButton.dataset.roleOption;
     }
 
+    // Mostra o "Cadastre-se" só para cliente/comerciante (admin não faz auto-cadastro),
+    // e leva o papel escolhido para a página de cadastro.
+    function updateSignupLink(role) {
+        const prompt = document.getElementById("signupPrompt");
+        const link = document.getElementById("signupLink");
+        if (!prompt) return;
+
+        if (role === "admin") {
+            prompt.style.display = "none";
+        } else {
+            prompt.style.display = "";
+            if (link) link.setAttribute("href", `register.html?role=${role}`);
+        }
+    }
+
+    updateSignupLink(selectedRole);
+
     roleButtons.forEach(button => {
         button.addEventListener("click", () => {
             selectedRole = button.dataset.roleOption;
 
             roleButtons.forEach(btn => btn.classList.remove("active"));
             button.classList.add("active");
+
+            updateSignupLink(selectedRole);
         });
     });
 
@@ -1450,12 +1503,33 @@ async function setupRegisterPage() {
     const registerForm = document.getElementById("registerForm");
     if (!registerForm) return;
 
+    // Papel vindo da tela de login (register.html?role=comerciante). Só cliente ou comerciante.
+    const role = (getQueryParam("role") || "cliente").toLowerCase() === "comerciante"
+        ? "comerciante"
+        : "cliente";
+
+    const storeField = document.getElementById("storeNameField");
+    const storeInput = document.getElementById("storeName");
+
+    if (role === "comerciante") {
+        if (storeField) storeField.classList.remove("hidden");
+
+        const titleEl = document.getElementById("registerTitle");
+        const subtitleEl = document.getElementById("registerSubtitle");
+        const introEl = document.getElementById("registerIntro");
+
+        if (titleEl) titleEl.textContent = "Cadastro de Lojista";
+        if (subtitleEl) subtitleEl.textContent = "Informe seus dados e o nome da sua loja.";
+        if (introEl) introEl.textContent = "Crie sua conta de comerciante para gerenciar sua loja e seus produtos.";
+    }
+
     registerForm.addEventListener("submit", async event => {
         event.preventDefault();
 
         const name = document.getElementById("name")?.value.trim();
         const email = document.getElementById("email")?.value.trim().toLowerCase();
         const password = document.getElementById("password")?.value.trim();
+        const storeName = storeInput?.value.trim();
         const nextPage = getQueryParam("next");
 
         if (!name) {
@@ -1473,11 +1547,21 @@ async function setupRegisterPage() {
             return;
         }
 
+        if (role === "comerciante" && !storeName) {
+            showMessage("Digite o nome da sua loja.");
+            return;
+        }
+
+        const payload = { name, email, password, role };
+        if (role === "comerciante") {
+            payload.store_name = storeName;
+        }
+
         try {
             const response = await fetch(`${API_BASE}/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, email, password })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -1489,7 +1573,12 @@ async function setupRegisterPage() {
             const session = await response.json();
             saveSession(session);
             await mergeGuestCartIntoBackend(session);
-            window.location.href = nextPage || "carrinho.html";
+
+            if (session.role === "comerciante") {
+                window.location.href = "dashboard.html";
+            } else {
+                window.location.href = nextPage || "carrinho.html";
+            }
         } catch (e) {
             showMessage("Erro ao conectar ao servidor de cadastro.");
             console.error(e);

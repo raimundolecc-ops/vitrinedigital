@@ -12,6 +12,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
 
+    <style>
+        /* Corrige o modal rolavel quando um <form> envolve o corpo e o rodape:
+           o corpo do formulario ganha rolagem e o rodape (botao Salvar) fica sempre visivel. */
+        .modal-dialog-scrollable .modal-content > form {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            flex: 1 1 auto;
+        }
+
+        .modal-dialog-scrollable .modal-content > form > .modal-body {
+            overflow-y: auto;
+            min-height: 0;
+        }
+    </style>
+
 </head>
 
 <body data-page="admin">

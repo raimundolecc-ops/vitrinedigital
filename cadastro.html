@@ -68,10 +68,6 @@
                 </div>
 
                 <div class="d-flex gap-2 flex-wrap">
-                    <button type="button" class="btn btn-outline-primary" id="openCategoryModal">
-                        <span class="material-symbols-outlined">category</span>
-                        Nova categoria
-                    </button>
                     <a href="dashboard.html" class="btn btn-outline-secondary">
                         <span class="material-symbols-outlined">arrow_back</span>
                         Voltar
@@ -167,37 +163,6 @@
                 </aside>
             </div>
         </main>
-    </div>
-
-    <div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div>
-                        <h5 class="modal-title">Nova categoria</h5>
-                        <small class="text-muted">Crie uma categoria e use imediatamente no cadastro do produto.</small>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                </div>
-                <form id="categoryForm">
-                    <div class="modal-body">
-                        <label class="form-label" for="newCategoryName">Nome da categoria</label>
-                        <input type="text" class="form-control" id="newCategoryName" placeholder="Ex: Hortifruti, Limpeza, Artesanato" required>
-                        <div class="mt-4">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <strong class="small text-uppercase text-muted">Categorias cadastradas</strong>
-                                <small class="text-muted">Use renomear para ajustar a categoria.</small>
-                            </div>
-                            <div id="productCategoryList" class="list-group list-group-flush border rounded"></div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Salvar categoria</button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
