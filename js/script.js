@@ -98,7 +98,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (page === "ofertas") {
         await setupOfertasPage();
     }
+
+    if (page === "perfil") {
+        await setupPerfilPage();
+    }
 });
+
+// Preenche o endereco automaticamente ao digitar o CEP (API ViaCEP).
+function setupCepAutofill(cepInput, enderecoInput) {
+    if (!cepInput || !enderecoInput) return;
+
+    cepInput.addEventListener("blur", async () => {
+        const rawCep = cepInput.value.replace(/\D/g, "");
+        if (rawCep.length !== 8) return;
+
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${rawCep}/json/`);
+            const data = await response.json();
+            if (data.erro) {
+                showMessage("CEP nao encontrado. Confira o numero informado.", "warning");
+                return;
+            }
+            const address = [data.logradouro, data.bairro, `${data.localidade} - ${data.uf}`]
+                .filter(Boolean)
+                .join(", ");
+            if (address) enderecoInput.value = address;
+        } catch (e) {
+            console.error(e);
+            showMessage("Nao foi possivel consultar o CEP agora.", "warning");
+        }
+    });
+}
 
 // ===============================
 // Storage e utilidades
@@ -613,6 +643,30 @@ async function setupGlobalLinks() {
     setupActiveMenu();
     setupRoleNav();
     setupUserInfo();
+    setupSidebarProfileLink();
+}
+
+// Nas paginas internas (com sidebar), injeta um link "Meu Perfil" acima do botao Sair.
+function setupSidebarProfileLink() {
+    const session = getSession();
+    if (!session) return;
+
+    document.querySelectorAll(".sidebar-footer").forEach(footer => {
+        if (footer.querySelector("[data-perfil-link]")) return;
+
+        const link = document.createElement("a");
+        link.href = "perfil.html";
+        link.setAttribute("data-perfil-link", "");
+        link.className = "btn btn-outline-secondary w-100 mb-2 d-flex align-items-center justify-content-center gap-1";
+        link.innerHTML = `<span class="material-symbols-outlined">account_circle</span> Meu Perfil`;
+
+        const logoutBtn = footer.querySelector("[data-logout]");
+        if (logoutBtn) {
+            footer.insertBefore(link, logoutBtn);
+        } else {
+            footer.appendChild(link);
+        }
+    });
 }
 
 function setupRoleNav() {
@@ -738,12 +792,12 @@ function setupUserInfo() {
 function getUserMenuConfig(session) {
     const role = session.role;
     if (role === "admin") {
-        return { roleLabel: "Administrador", panelHref: "admin.html", panelLabel: "Painel", ordersLabel: "Pedidos" };
+        return { roleLabel: "Administrador", panelHref: "admin.html", panelLabel: "Painel", ordersLabel: "Pedidos", showOrders: false };
     }
     if (role === "comerciante") {
-        return { roleLabel: "Lojista", panelHref: "dashboard.html", panelLabel: "Painel", ordersLabel: "Pedidos" };
+        return { roleLabel: "Lojista", panelHref: "dashboard.html", panelLabel: "Painel", ordersLabel: "Pedidos", showOrders: true };
     }
-    return { roleLabel: "Cliente", panelHref: null, panelLabel: null, ordersLabel: "Meus Pedidos" };
+    return { roleLabel: "Cliente", panelHref: null, panelLabel: null, ordersLabel: "Meus Pedidos", showOrders: true };
 }
 
 function injectUserMenu(session) {
@@ -785,10 +839,16 @@ function injectUserMenu(session) {
                     ${escapeHTML(menu.panelLabel)}
                 </a>
                 ` : ""}
+                <a href="perfil.html" class="client-dropdown-item" role="menuitem" id="clientMenuPerfil">
+                    <span class="material-symbols-outlined">account_circle</span>
+                    Meu Perfil
+                </a>
+                ${menu.showOrders ? `
                 <a href="pedidos.html" class="client-dropdown-item" role="menuitem" id="clientMenuPedidos">
                     <span class="material-symbols-outlined">receipt_long</span>
                     ${escapeHTML(menu.ordersLabel)}
                 </a>
+                ` : ""}
                 <div class="client-dropdown-divider"></div>
                 <button class="client-dropdown-item is-danger" role="menuitem" id="clientMenuLogout" type="button" data-logout>
                     <span class="material-symbols-outlined">logout</span>
@@ -856,10 +916,16 @@ function injectUserMenu(session) {
             ${escapeHTML(menu.panelLabel)}
         </a>
         ` : ""}
+        <a href="perfil.html" class="mobile-client-link" id="mobileMenuPerfil">
+            <span class="material-symbols-outlined">account_circle</span>
+            Meu Perfil
+        </a>
+        ${menu.showOrders ? `
         <a href="pedidos.html" class="mobile-client-link" id="mobileMenuPedidos">
             <span class="material-symbols-outlined">receipt_long</span>
             ${escapeHTML(menu.ordersLabel)}
         </a>
+        ` : ""}
         <button class="mobile-client-link is-danger" type="button" data-logout-mobile id="mobileMenuLogout">
             <span class="material-symbols-outlined">logout</span>
             Sair
@@ -1357,6 +1423,131 @@ async function setupOfertasPage() {
     renderOffers();
 }
 
+// ===============================
+// Perfil - perfil.html
+// ===============================
+
+async function setupPerfilPage() {
+    const form = document.getElementById("perfilForm");
+    const session = getSession();
+
+    if (!session) {
+        window.location.href = "login.html?next=perfil.html";
+        return;
+    }
+    if (!form) return;
+
+    const backLink = document.getElementById("perfilBackLink");
+    const roleLabel = document.getElementById("perfilRoleLabel");
+    if (backLink) {
+        backLink.href = session.role === "admin" ? "admin.html"
+            : session.role === "comerciante" ? "dashboard.html" : "index.html";
+    }
+
+    const fields = {
+        nome: document.getElementById("perfilNome"),
+        email: document.getElementById("perfilEmail"),
+        telefone: document.getElementById("perfilTelefone"),
+        cep: document.getElementById("perfilCep"),
+        endereco: document.getElementById("perfilEndereco"),
+        lojaSection: document.getElementById("perfilLojaSection"),
+        lojaNome: document.getElementById("perfilLojaNome"),
+        lojaCep: document.getElementById("perfilLojaCep"),
+        lojaEndereco: document.getElementById("perfilLojaEndereco"),
+        senhaAtual: document.getElementById("perfilSenhaAtual"),
+        senhaNova: document.getElementById("perfilSenhaNova")
+    };
+
+    setupCepAutofill(fields.cep, fields.endereco);
+    setupCepAutofill(fields.lojaCep, fields.lojaEndereco);
+
+    try {
+        const res = await fetch(`${API_BASE}/perfil`);
+        if (!res.ok) throw new Error("Falha ao carregar perfil");
+        const data = await res.json();
+
+        if (fields.nome) fields.nome.value = data.nome || "";
+        if (fields.email) fields.email.value = data.email || "";
+        if (fields.telefone) fields.telefone.value = data.telefone || "";
+        if (fields.cep) fields.cep.value = data.cep || "";
+        if (fields.endereco) fields.endereco.value = data.endereco || "";
+
+        if (roleLabel) {
+            roleLabel.textContent = data.funcao === "comerciante" ? "Conta de lojista"
+                : data.funcao === "admin" ? "Conta de administrador" : "Conta de cliente";
+        }
+
+        if (data.funcao === "comerciante" && data.loja) {
+            if (fields.lojaSection) fields.lojaSection.classList.remove("hidden");
+            if (fields.lojaNome) fields.lojaNome.value = data.loja.nome || "";
+            if (fields.lojaCep) fields.lojaCep.value = data.loja.cep || "";
+            if (fields.lojaEndereco) fields.lojaEndereco.value = data.loja.localizacao || "";
+        }
+    } catch (e) {
+        console.error(e);
+        showMessage("Nao foi possivel carregar seu perfil. Faca login novamente.", "error");
+    }
+
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
+
+        const nome = fields.nome?.value.trim();
+        if (!nome) {
+            showMessage("Informe seu nome.");
+            return;
+        }
+
+        const senhaNova = fields.senhaNova?.value.trim();
+        const senhaAtual = fields.senhaAtual?.value.trim();
+        if (senhaNova && !senhaAtual) {
+            showMessage("Digite a senha atual para trocar a senha.", "warning");
+            return;
+        }
+
+        const payload = {
+            nome,
+            telefone: fields.telefone?.value.trim() || null,
+            cep: fields.cep?.value.trim() || null,
+            endereco: fields.endereco?.value.trim() || null
+        };
+
+        if (fields.lojaSection && !fields.lojaSection.classList.contains("hidden")) {
+            payload.loja_nome = fields.lojaNome?.value.trim() || null;
+            payload.loja_cep = fields.lojaCep?.value.trim() || null;
+            payload.loja_localizacao = fields.lojaEndereco?.value.trim() || null;
+        }
+
+        if (senhaNova) {
+            payload.senha_atual = senhaAtual;
+            payload.senha_nova = senhaNova;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/perfil`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showMessage(err.detail || "Nao foi possivel salvar o perfil.", "error");
+                return;
+            }
+
+            // Atualiza o nome exibido na sessao local.
+            saveSession({ ...session, name: nome });
+
+            if (fields.senhaAtual) fields.senhaAtual.value = "";
+            if (fields.senhaNova) fields.senhaNova.value = "";
+            showMessage("Perfil atualizado com sucesso.", "success");
+        } catch (e) {
+            console.error(e);
+            showMessage("Erro ao conectar ao servidor.", "error");
+        }
+    });
+}
+
 async function mergeGuestCartIntoBackend(session) {
     // Ao logar/cadastrar, leva o carrinho que o visitante montou (localStorage)
     // para o carrinho do usuario no backend, para nao perder os itens.
@@ -1521,6 +1712,8 @@ async function setupRegisterPage() {
         if (titleEl) titleEl.textContent = "Cadastro de Lojista";
         if (subtitleEl) subtitleEl.textContent = "Informe seus dados e o nome da sua loja.";
         if (introEl) introEl.textContent = "Crie sua conta de comerciante para gerenciar sua loja e seus produtos.";
+
+        setupCepAutofill(document.getElementById("storeCep"), document.getElementById("storeEndereco"));
     }
 
     registerForm.addEventListener("submit", async event => {
@@ -1555,6 +1748,8 @@ async function setupRegisterPage() {
         const payload = { name, email, password, role };
         if (role === "comerciante") {
             payload.store_name = storeName;
+            payload.cep = document.getElementById("storeCep")?.value.trim() || null;
+            payload.localizacao = document.getElementById("storeEndereco")?.value.trim() || null;
         }
 
         try {

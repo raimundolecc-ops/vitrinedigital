@@ -61,6 +61,8 @@ class RegisterRequest(BaseModel):
     name: str
     role: Optional[str] = "cliente"
     store_name: Optional[str] = None
+    cep: Optional[str] = None
+    localizacao: Optional[str] = None
 
 class UserPublic(BaseModel):
     email: str
@@ -144,6 +146,14 @@ def ensure_lojas_schema(conn) -> None:
         cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS cep VARCHAR(20)")
         cur.execute("ALTER TABLE lojas ADD COLUMN IF NOT EXISTS imagem TEXT")
     conn.commit()
+
+def ensure_usuarios_schema(conn) -> None:
+    with conn.cursor() as cur:
+        cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefone VARCHAR(30)")
+        cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS cep VARCHAR(20)")
+        cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS endereco VARCHAR(255)")
+    conn.commit()
+
 
 def ensure_categorias_schema(conn) -> None:
     with conn.cursor() as cur:
@@ -556,6 +566,106 @@ def get_me(user: dict = Depends(get_current_user), conn = Depends(get_db_connect
             "data_criacao": row["data_criacao"].isoformat() if row["data_criacao"] else None,
         }
 
+
+class PerfilUpdate(BaseModel):
+    nome: str
+    telefone: Optional[str] = None
+    cep: Optional[str] = None
+    endereco: Optional[str] = None
+    # Dados da loja (apenas comerciante)
+    loja_nome: Optional[str] = None
+    loja_cep: Optional[str] = None
+    loja_localizacao: Optional[str] = None
+    # Troca de senha (opcional)
+    senha_atual: Optional[str] = None
+    senha_nova: Optional[str] = None
+
+
+@app.get("/api/perfil")
+def get_perfil(user: dict = Depends(get_current_user), conn = Depends(get_db_connection)):
+    """Dados do proprio usuario logado, para a pagina de perfil."""
+    ensure_usuarios_schema(conn)
+    email = user.get("sub")
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT email, nome, funcao, slug_loja, telefone, cep, endereco FROM usuarios WHERE email = %s",
+            (email,)
+        )
+        u = cur.fetchone()
+        if not u:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+
+        data = {
+            "email": u["email"],
+            "nome": u["nome"],
+            "funcao": u["funcao"],
+            "telefone": u["telefone"],
+            "cep": u["cep"],
+            "endereco": u["endereco"],
+            "loja": None,
+        }
+
+        if u["funcao"] == "comerciante" and u["slug_loja"]:
+            ensure_lojas_schema(conn)
+            cur.execute("SELECT nome, cep, localizacao FROM lojas WHERE slug_loja = %s", (u["slug_loja"],))
+            loja = cur.fetchone()
+            if loja:
+                data["loja"] = {
+                    "nome": loja["nome"],
+                    "cep": loja["cep"],
+                    "localizacao": loja["localizacao"],
+                }
+        return data
+
+
+@app.put("/api/perfil")
+def update_perfil(req: PerfilUpdate, user: dict = Depends(get_current_user), conn = Depends(get_db_connection)):
+    """Atualiza os dados do proprio usuario logado (e da loja, se for comerciante)."""
+    ensure_usuarios_schema(conn)
+    email = user.get("sub")
+
+    nome = (req.nome or "").strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Informe seu nome.")
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT email, senha, funcao, slug_loja FROM usuarios WHERE email = %s", (email,))
+        u = cur.fetchone()
+        if not u:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+
+        # Troca de senha (opcional): exige a senha atual correta.
+        nova_senha_hash = None
+        if req.senha_nova:
+            if not req.senha_atual or not verify_password(req.senha_atual, u["senha"]):
+                raise HTTPException(status_code=400, detail="Senha atual incorreta.")
+            nova_senha_hash = hash_password(req.senha_nova)
+
+        if nova_senha_hash:
+            cur.execute(
+                "UPDATE usuarios SET nome = %s, telefone = %s, cep = %s, endereco = %s, senha = %s WHERE email = %s",
+                (nome, req.telefone, req.cep, req.endereco, nova_senha_hash, email)
+            )
+        else:
+            cur.execute(
+                "UPDATE usuarios SET nome = %s, telefone = %s, cep = %s, endereco = %s WHERE email = %s",
+                (nome, req.telefone, req.cep, req.endereco, email)
+            )
+
+        # Comerciante: atualiza tambem os dados da loja.
+        if u["funcao"] == "comerciante" and u["slug_loja"] and req.loja_nome:
+            ensure_lojas_schema(conn)
+            loja_nome = req.loja_nome.strip()
+            cur.execute(
+                "UPDATE lojas SET nome = %s, cep = %s, localizacao = %s, nome_proprietario = %s WHERE slug_loja = %s",
+                (loja_nome, req.loja_cep, req.loja_localizacao, nome, u["slug_loja"])
+            )
+            cur.execute("UPDATE produtos SET nome_loja = %s WHERE slug_dono = %s", (loja_nome, u["slug_loja"]))
+
+        conn.commit()
+        return {"success": True, "message": "Perfil atualizado com sucesso."}
+
+
 @app.post("/api/auth/register", response_model=UserSession)
 def register(req: RegisterRequest, conn = Depends(get_db_connection)):
     import time, datetime
@@ -581,10 +691,11 @@ def register(req: RegisterRequest, conn = Depends(get_db_connection)):
 
             # Cria a loja como "Pendente" (aguardando aprovacao do administrador).
             cur.execute(
-                """INSERT INTO lojas (id, nome, categoria, localizacao, status, slug_loja,
+                """INSERT INTO lojas (id, nome, categoria, localizacao, cep, status, slug_loja,
                         nome_proprietario, email_proprietario)
-                   VALUES (%s, %s, %s, %s, 'Pendente', %s, %s, %s)""",
-                (id_org, store_name, "Geral", "Nao informado", slug, req.name, req.email)
+                   VALUES (%s, %s, %s, %s, %s, 'Pendente', %s, %s, %s)""",
+                (id_org, store_name, "Geral", (req.localizacao or "").strip() or "Nao informado",
+                 (req.cep or "").strip() or None, slug, req.name, req.email)
             )
             cur.execute(
                 """INSERT INTO usuarios (email, senha, nome, funcao, slug_loja)

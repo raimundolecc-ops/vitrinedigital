@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LocalMarket | Meu Perfil</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
+
+    <style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .field-label { display:block; font-size:.875rem; font-weight:700; color:#334155; margin-bottom:.5rem; }
+        .field-input { width:100%; padding:.75rem 1rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:.75rem; outline:none; }
+        .field-input:focus { box-shadow:0 0 0 2px #10b981; border-color:#10b981; }
+    </style>
+</head>
+
+<body data-page="perfil" class="bg-background text-on-background min-h-screen flex flex-col">
+
+    <main class="flex-grow flex items-start justify-center px-6 py-10">
+        <section class="w-full max-w-[640px]">
+
+            <div class="mb-6">
+                <a id="perfilBackLink" href="index.html" class="inline-flex items-center gap-1 text-sm font-bold text-emerald-600 hover:underline">
+                    <span class="material-symbols-outlined text-base">arrow_back</span>
+                    Voltar
+                </a>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl shadow-xl p-6 md:p-8">
+                <div class="mb-6 flex items-center gap-3">
+                    <span class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-600 text-white">
+                        <span class="material-symbols-outlined">account_circle</span>
+                    </span>
+                    <div>
+                        <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Meu Perfil</h1>
+                        <p class="text-sm text-slate-500" id="perfilRoleLabel">Gerencie os seus dados.</p>
+                    </div>
+                </div>
+
+                <form id="perfilForm" class="space-y-5">
+
+                    <div>
+                        <label for="perfilNome" class="field-label">Nome completo</label>
+                        <input id="perfilNome" type="text" class="field-input" placeholder="Seu nome" required />
+                    </div>
+
+                    <div>
+                        <label for="perfilEmail" class="field-label">E-mail (não editável)</label>
+                        <input id="perfilEmail" type="email" class="field-input bg-slate-100 text-slate-500" readonly />
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="perfilTelefone" class="field-label">Telefone</label>
+                            <input id="perfilTelefone" type="text" class="field-input" placeholder="(00) 00000-0000" />
+                        </div>
+                        <div>
+                            <label for="perfilCep" class="field-label">CEP</label>
+                            <input id="perfilCep" type="text" class="field-input" placeholder="00000-000" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="perfilEndereco" class="field-label">Endereço</label>
+                        <input id="perfilEndereco" type="text" class="field-input" placeholder="Rua, bairro, cidade - UF" />
+                        <p class="text-xs text-slate-400 mt-1">Digite o CEP para preencher o endereço automaticamente.</p>
+                    </div>
+
+                    <!-- Dados da loja (apenas comerciante) -->
+                    <div id="perfilLojaSection" class="hidden space-y-5 pt-5 border-t border-slate-100">
+                        <h2 class="text-lg font-extrabold text-slate-900">Dados da loja</h2>
+                        <div>
+                            <label for="perfilLojaNome" class="field-label">Nome da loja</label>
+                            <input id="perfilLojaNome" type="text" class="field-input" placeholder="Nome da sua loja" />
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="perfilLojaCep" class="field-label">CEP da loja</label>
+                                <input id="perfilLojaCep" type="text" class="field-input" placeholder="00000-000" />
+                            </div>
+                            <div>
+                                <label for="perfilLojaEndereco" class="field-label">Endereço da loja</label>
+                                <input id="perfilLojaEndereco" type="text" class="field-input" placeholder="Rua, bairro, cidade - UF" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alterar senha -->
+                    <div class="space-y-5 pt-5 border-t border-slate-100">
+                        <h2 class="text-lg font-extrabold text-slate-900">Alterar senha</h2>
+                        <p class="text-xs text-slate-400 -mt-3">Preencha apenas se quiser trocar a senha.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="perfilSenhaAtual" class="field-label">Senha atual</label>
+                                <input id="perfilSenhaAtual" type="password" class="field-input" placeholder="Sua senha atual" autocomplete="current-password" />
+                            </div>
+                            <div>
+                                <label for="perfilSenhaNova" class="field-label">Nova senha</label>
+                                <input id="perfilSenhaNova" type="password" class="field-input" placeholder="Nova senha" autocomplete="new-password" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit" class="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-extrabold hover:bg-emerald-700 transition flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined">save</span>
+                            Salvar alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-white border-t border-slate-100 py-6">
+        <div class="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p class="text-xs text-slate-500">© 2026 LocalMarket. Todos os direitos reservados.</p>
+            <div class="flex gap-5">
+                <a href="privacidade.html" class="text-xs text-slate-500 hover:text-emerald-600 underline">Privacidade</a>
+                <a href="termos.html" class="text-xs text-slate-500 hover:text-emerald-600 underline">Termos</a>
+                <a href="contato.html" class="text-xs text-slate-500 hover:text-emerald-600 underline">Contato</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/script.js"></script>
+
+    <!--Acessibilidade-->
+    <div vw class="enabled">
+        <div vw-access-button class="active"></div>
+        <div vw-plugin-wrapper>
+            <div vw-plugin-top-wrapper></div>
+        </div>
+    </div>
+    <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+    <script>
+        new window.VLibras.Widget('https://vlibras.gov.br/app');
+    </script>
+
+    <div class="fixed bottom-24 left-8 z-50 flex flex-col gap-2">
+        <button onclick="toggleContrast()" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Alto Contraste">
+            <span class="material-symbols-outlined">contrast</span>
+        </button>
+        <button onclick="changeFontSize(1)" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Aumentar Fonte">
+            <span class="material-symbols-outlined">text_increase</span>
+        </button>
+        <button onclick="changeFontSize(-1)" class="w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-900 transition-all" title="Diminuir Fonte">
+            <span class="material-symbols-outlined">text_decrease</span>
+        </button>
+    </div>
+</body>
+
+</html>

@@ -29,6 +29,9 @@ CREATE TABLE usuarios (
     nome VARCHAR(255) NOT NULL,
     funcao VARCHAR(50) NOT NULL, -- 'admin', 'comerciante', 'cliente'
     slug_loja VARCHAR(100),
+    telefone VARCHAR(30),
+    cep VARCHAR(20),
+    endereco VARCHAR(255),
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

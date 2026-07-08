@@ -2,6 +2,7 @@ Resumo rápido
 Iniciar PostgreSQL
 cd C:\Users\Administrador\Documents\GitHub\vitrinedigital
 python backend/main.py
+python backend/main.py
 python -m http.server 5500
 Abrir http://localhost:5500/Index.html
 Se quiser, posso também criar um pequeno script start.bat para automatizar esses passos.
