@@ -1958,14 +1958,14 @@ function updateCatalogModeUI(isManagementView) {
     if (description) {
         description.textContent = isManagementView
             ? "Gerencie os produtos da sua loja, revise status e edite os cadastros."
-            : "VisualizaÃ§Ã£o pÃºblica dos registros ativos.";
+            : "Visualização pública dos registros ativos.";
     }
 
     if (badge) {
         if (isManagementView) {
             badge.innerHTML = `
                 <span class="material-symbols-outlined">edit_square</span>
-                Modo gestÃ£o
+                Modo Gestão
             `;
         } else {
             badge.innerHTML = `
